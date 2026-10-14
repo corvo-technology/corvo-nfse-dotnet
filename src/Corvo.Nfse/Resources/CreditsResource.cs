@@ -9,9 +9,9 @@ public sealed class CreditsResource
 
     internal CreditsResource(HttpTransport http) => _http = http;
 
-    /// <summary>Current credit balance (<c>GET /v1/credits/balance</c>).</summary>
+    /// <summary>Current credit balance (<c>GET /v1/credits</c>).</summary>
     public Task<Result<CreditBalance>> BalanceAsync(CancellationToken ct = default)
-        => _http.RequestAsync<CreditBalance>(HttpMethod.Get, "/credits/balance", ct: ct);
+        => _http.RequestAsync<CreditBalance>(HttpMethod.Get, "/credits", ct: ct);
 
     /// <summary>Credit plans, cursor-paginated (<c>GET /v1/credits/plans</c>).</summary>
     public Task<Result<Paginated<CreditPlan>>> PlansAsync(int? limit = null, string? cursor = null, CancellationToken ct = default)

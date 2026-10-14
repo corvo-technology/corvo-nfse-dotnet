@@ -18,7 +18,7 @@ public class CreditsBillingHealthTests
         Assert.Equal("ten_1", balance.TenantId);
         Assert.Equal(120.5m, balance.Balance);
         Assert.Null(balance.HardLimit);
-        Assert.Equal("https://api.test.local/v1/credits/balance", handler.Requests[0].Url);
+        Assert.Equal("https://api.test.local/v1/credits", handler.Requests[0].Url);
     }
 
     [Fact]
