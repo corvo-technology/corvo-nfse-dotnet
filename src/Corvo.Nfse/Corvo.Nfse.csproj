@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>12</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- CS1591: XML docs are present on public API surface (types, methods, properties);
+         generated record scaffolding (positional parameters) is exempted. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>Corvo.Nfse</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Corvo Technology</Authors>
+    <Company>Corvo Technology</Company>
+    <Product>Corvo NFS-e SDK</Product>
+    <Description>Idiomatic .NET SDK for the Corvo NFS-e API: issue, list, download and reconcile Brazilian electronic service invoices. Result-style errors that never throw, cursor pagination, webhook signature verification.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/corvo-technology/corvo-nfse-dotnet</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/corvo-technology/corvo-nfse-dotnet</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>corvo;nfse;nfs-e;brazil;invoice;fiscal;e-invoice</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>Contract v1: 28 API-key operations + 2 health checks, synchronized with the other corvo-nfse SDKs.</PackageReleaseNotes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+</Project>

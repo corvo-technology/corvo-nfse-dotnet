@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore Corvo.Nfse.sln
+
+      - name: Build
+        run: dotnet build Corvo.Nfse.sln --no-restore --configuration Release -warnaserror
+
+      - name: Test
+        run: dotnet test Corvo.Nfse.sln --no-build --configuration Release --logger "trx;LogFileName=test-results.trx"
+
+      - name: Pack
+        run: dotnet pack src/Corvo.Nfse/Corvo.Nfse.csproj --no-build --configuration Release --output artifacts
+
+      - name: Contract test (live instance, optional)
+        env:
+          CORVO_API_KEY: ${{ secrets.CORVO_API_KEY }}
+          CORVO_BASE_URL: ${{ secrets.CORVO_BASE_URL }}
+        run: dotnet test Corvo.Nfse.sln --no-build --configuration Release --filter FullyQualifiedName~Contract
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-package
+          path: artifacts/*.nupkg
