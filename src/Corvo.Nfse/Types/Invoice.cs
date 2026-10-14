@@ -143,7 +143,7 @@ public sealed record Invoice
     public string TenantId { get; init; } = string.Empty;
     public string Environment { get; init; } = string.Empty;
     public int DocumentKeyVersion { get; init; }
-    public InvoiceEmailSnapshot EmailSnapshot { get; init; } = new();
+    public InvoiceEmailSnapshot EmailSnapshot { get; init; } = new(Send: false);
     public string? ExternalId { get; init; }
     public string? IdempotencyKey { get; init; }
     public string Status { get; init; } = string.Empty;

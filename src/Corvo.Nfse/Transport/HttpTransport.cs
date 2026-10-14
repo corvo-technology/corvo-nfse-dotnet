@@ -99,7 +99,7 @@ internal sealed partial class HttpTransport : IDisposable
                 return new Result<T>(default, null);
             }
 
-            if (!JsonDocument.TryParse(text, out var doc))
+            if (!TryParseJson(text, out var doc))
             {
                 return new Result<T>(default, InvalidJson(response));
             }
@@ -277,7 +277,7 @@ internal sealed partial class HttpTransport : IDisposable
                 return new Result<T>(default, null);
             }
 
-            if (!JsonDocument.TryParse(text, out var doc))
+            if (!TryParseJson(text, out var doc))
             {
                 return new Result<T>(default, InvalidJson(response));
             }
@@ -468,12 +468,27 @@ internal sealed partial class HttpTransport : IDisposable
         return false;
     }
 
+    private static bool TryParseJson(string text, out JsonDocument doc)
+    {
+        try
+        {
+            doc = JsonDocument.Parse(text);
+            return true;
+        }
+        catch (JsonException)
+        {
+            // Malformed JSON: callers map this to the invalid_json error.
+            doc = null!;
+            return false;
+        }
+    }
+
     private static CorvoApiError InvalidJson(HttpResponseMessage response)
         => new(
             (int)response.StatusCode,
             "invalid_json",
             "Invalid JSON in response",
-            requestId: HeaderValue(response, "X-Request-Id"));
+            RequestId: HeaderValue(response, "X-Request-Id"));
 
     private static CorvoApiError NetworkError(Exception ex)
         => new(0, "network_error", $"Network request failed: {ex.Message}");
@@ -487,7 +502,7 @@ internal sealed partial class HttpTransport : IDisposable
         int? retryAfter = null;
         IReadOnlyList<CorvoErrorDetail>? details = null;
 
-        if (bodyText.Length > 0 && JsonDocument.TryParse(bodyText, out var doc))
+        if (bodyText.Length > 0 && TryParseJson(bodyText, out var doc))
         {
             using (doc)
             {
