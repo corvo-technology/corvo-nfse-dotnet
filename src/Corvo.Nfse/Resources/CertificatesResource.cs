@@ -28,15 +28,43 @@ public sealed class CertificatesResource
         string? fileName = null,
         CancellationToken ct = default)
     {
+        var resolvedName = fileName ?? "certificate.p12";
         var form = new MultipartFormDataContent();
+
+        // Pin each part's Content-Disposition explicitly instead of relying on
+        // MultipartFormDataContent's name/filename overloads: the raw body must
+        // carry the quoted RFC 7578 form (`name="file"; filename="..."`,
+        // `name="password"`) exactly as the canonical Node SDK sends it.
         var fileContent = new ByteArrayContent(file);
         fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/x-pkcs12");
-        form.Add(fileContent, "file", fileName ?? "certificate.p12");
-        form.Add(new StringContent(password), "password");
+        fileContent.Headers.TryAddWithoutValidation(
+            "Content-Disposition",
+            $"form-data; name=\"file\"; filename={QuoteHeaderValue(resolvedName)}");
+        form.Add(fileContent);
+
+        var passwordContent = new StringContent(password);
+        passwordContent.Headers.TryAddWithoutValidation(
+            "Content-Disposition",
+            "form-data; name=\"password\"");
+        form.Add(passwordContent);
 
         return await _http
             .SendMultipartAsync<Certificate>($"/companies/{Uri.EscapeDataString(companyId)}/certificates", form, ct)
             .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Wraps <paramref name="value"/> in double quotes for a Content-Disposition
+    /// parameter, escaping per RFC 7578 and stripping CR/LF.
+    /// </summary>
+    private static string QuoteHeaderValue(string value)
+    {
+        var safe = value
+            .Replace("\r", string.Empty, StringComparison.Ordinal)
+            .Replace("\n", string.Empty, StringComparison.Ordinal)
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("\"", "\\\"", StringComparison.Ordinal);
+        return $"\"{safe}\"";
     }
 
     /// <summary>Lists a company's certificates (<c>GET /v1/companies/{id}/certificates</c>).</summary>
