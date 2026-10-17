@@ -8,7 +8,7 @@
 - **Webhook signature check** in constant time.
 - **No package dependencies**: `HttpClient` and `System.Text.Json` come with .NET. Library only, no CLI.
 
-Full API reference: <https://corvo.tech/en/api-docs>.
+Full API reference: <https://corvo.tech/en/docs>.
 
 ## Install
 
