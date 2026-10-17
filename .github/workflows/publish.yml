@@ -1,7 +1,11 @@
 name: Publish to NuGet
 
 # Runs when a version tag is pushed (git tag v0.1.1 && git push origin v0.1.1).
-# Needs the repository secret NUGET_API_KEY (an API key from nuget.org).
+# Uses NuGet trusted publishing: no API key is stored. One-time setup:
+#   1. On nuget.org (Trusted Publishing), add a policy: owner = your nuget.org account, repository
+#      corvo-technology/corvo-nfse-dotnet, workflow "publish.yml", environment "nuget",
+#      scope "Push new packages and package versions", package "Corvo.Nfse".
+#   2. Add the repository variable NUGET_USER with your nuget.org profile name (not your email).
 on:
   push:
     tags: ["v*"]
@@ -10,6 +14,9 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     environment: nuget
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -28,7 +35,13 @@ jobs:
       - name: Pack
         run: dotnet pack src/Corvo.Nfse -c Release -o out
 
+      - name: Exchange the GitHub token for a short-lived NuGet API key
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ vars.NUGET_USER }}
+
       - name: Publish
         run: dotnet nuget push "out/*.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
