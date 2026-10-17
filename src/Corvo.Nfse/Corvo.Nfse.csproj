@@ -15,18 +15,18 @@
 
   <PropertyGroup>
     <PackageId>Corvo.Nfse</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <Authors>Corvo Technology</Authors>
     <Company>Corvo Technology</Company>
     <Product>Corvo NFS-e SDK</Product>
-    <Description>Idiomatic .NET SDK for the Corvo NFS-e API: issue, list, download and reconcile Brazilian electronic service invoices. Result-style errors that never throw, cursor pagination, webhook signature verification.</Description>
+    <Description>.NET SDK for the Corvo NFS-e API: issue Brazilian service invoices, calculate taxes, verify webhooks. Result-style errors, cursor pagination.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/corvo-technology/corvo-nfse-dotnet</PackageProjectUrl>
+    <PackageProjectUrl>https://corvo.tech</PackageProjectUrl>
     <RepositoryUrl>https://github.com/corvo-technology/corvo-nfse-dotnet</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>corvo;nfse;nfs-e;brazil;invoice;fiscal;e-invoice</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>Contract v1: 28 API-key operations + 2 health checks, synchronized with the other corvo-nfse SDKs.</PackageReleaseNotes>
+    <PackageReleaseNotes>0.1.1: resources are read straight from data (no props wrapper), invoices.CalculateAsync and the public Plans catalog, types aligned with the API.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

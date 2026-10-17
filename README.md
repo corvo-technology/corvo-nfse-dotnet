@@ -1,16 +1,14 @@
-# corvo-nfse-dotnet
+# Corvo.Nfse
 
-**The .NET SDK for the Corvo NFS-e API — built for self-hosted installs, zero runtime dependencies, and errors that never throw.**
+**The .NET SDK for the [Corvo](https://corvo.tech) NFS-e API.** Register companies, calculate taxes, issue Brazilian service invoices (NFS-e), follow them by webhook and download the PDF and XML, from .NET 8+.
 
-Issue, list, download, and reconcile Brazilian electronic service invoices (NFS-e) from any .NET 8+ app. No wrapper frameworks, no `try/catch` around every call.
+- **Result-style errors.** API, network and timeout failures come back as `Result<T>` with a `CorvoApiError` carrying the server's stable `Code`, the HTTP `Status`, the `RequestId`, field-level `Details` and `RetryAfter`. Nothing throws for them.
+- **Pagination built in.** Every list returns `Paginated<T>` with `{ Limit, HasMore, NextCursor }`, and `IterateAsync(...)` walks all pages and surfaces a page failure as an error result.
+- **Safe retries.** Issuing an invoice and sending an email accept an idempotency key.
+- **Webhook signature check** in constant time.
+- **No package dependencies**: `HttpClient` and `System.Text.Json` come with .NET. Library only, no CLI.
 
-## Why corvo-nfse-dotnet
-
-- **Self-hosted first.** Point it at your own Corvo instance with `BaseUrl`; the default `https://api.corvo.tech` only applies when you don't.
-- **Zero runtime dependencies.** `HttpClient` and `System.Text.Json` are in the box. The package pulls nothing.
-- **Errors that never throw.** API, network, and timeout failures come back as `Result<T>` with a `CorvoApiError` carrying the server's stable `code`, HTTP `status`, `requestId`, and field-level `details`. Throw it yourself if you prefer.
-- **Pagination you don't have to think about.** Every list returns `Paginated<T>` with `{ limit, hasMore, nextCursor }`. Need every page? `IterateAsync(...)` walks them for you and surfaces any page failure as an error result.
-- **The same contract as every other Corvo SDK.** 28 API-key operations + 2 health checks, `X-API-Key` auth, `v1` prefix, identical wire format — nothing re-cased or renamed.
+Full API reference: <https://corvo.tech/en/api-docs>.
 
 ## Install
 
@@ -18,136 +16,173 @@ Issue, list, download, and reconcile Brazilian electronic service invoices (NFS-
 dotnet add package Corvo.Nfse
 ```
 
-## SDK quickstart
+## Quickstart
+
+Start with a `corvo_test_...` key: invoices issued with it have no fiscal value.
 
 ```csharp
 using Corvo.Nfse;
 
 using var client = new CorvoClient(new CorvoOptions
 {
-    ApiKey = "corvo_live_xxx",          // or set CORVO_API_KEY
-    BaseUrl = "https://api.corvo.tech", // or CORVO_BASE_URL for your self-hosted install
+    ApiKey = "corvo_test_...",            // or set CORVO_API_KEY
+    // BaseUrl = "https://api.corvo.tech", // default; also read from CORVO_BASE_URL
 });
 
 var page = await client.Companies.ListAsync(limit: 10);
 if (page.Error is { } error)
 {
-    // CorvoApiError: status, code, requestId, details, retryAfter
+    // CorvoApiError: Status, Code, RequestId, Details, RetryAfter
     Console.WriteLine($"{error.Code} {error.Status} {error.RequestId}");
 }
 else
 {
     foreach (var company in page.Data!.Data)
         Console.WriteLine(company.LegalName);
-    Console.WriteLine($"{page.Data.Pagination.HasMore} {page.Data.Pagination.NextCursor}");
 }
 ```
 
+`new CorvoClient(...)` is the only call that throws (`ArgumentException`): it fails fast when no API key is configured or the base URL is invalid.
+
+### Register a company
+
+```csharp
+var company = await client.Companies.CreateAsync(new CompanyCreateParams
+{
+    LegalName = "Empresa Exemplo Ltda",
+    TaxId = "11222333000181",
+    TaxRegime = TaxRegimes.SimplesNacional,
+    MunicipalityCode = "3550308",      // IBGE code, 7 digits
+    DefaultServiceCode = "010101",     // optional: used when an invoice omits Service.Code
+});
+```
+
+In `live`, also upload the A1 certificate with `client.Certificates.UploadAsync(...)`. The company is ready when `Status == "ready"` and `SetupGaps` is empty.
+
+### Estimate the taxes before issuing
+
+Nothing is issued, stored or charged.
+
+```csharp
+var estimate = await client.Invoices.CalculateAsync(new InvoiceCreateParams
+{
+    CompanyTaxId = "11222333000181",
+    Service = new InvoiceServiceInput { Description = "Consultoria" },
+    Amount = 1500m,
+    CompetenceDate = "2026-10-16",
+});
+// estimate.Data!.Status is "ready" or "blocked": a fiscal gap is data, not an error.
+```
+
 ### Issue an invoice
+
+Issuing is asynchronous: a successful call means the request was accepted, not that the invoice is authorized. Follow the status with `GetAsync` or webhooks.
 
 ```csharp
 var created = await client.Invoices.CreateAsync(
     new InvoiceCreateParams
     {
-        CompanyId = "cmp_...",
-        Customer = new InvoiceCustomerInput { Name = "Customer", TaxId = "52998224725", Email = "a@b.com" },
-        Service = new InvoiceServiceInput { Code = "0101", MunicipalityCode = "3170206", Description = "Services" },
+        CompanyTaxId = "11222333000181", // or CompanyId
+        // Customer is optional; when sent, TaxId (CPF or CNPJ) is required.
+        Customer = new InvoiceCustomerInput { TaxId = "52998224725", Name = "Cliente", Email = "cliente@example.com" },
+        Service = new InvoiceServiceInput { Description = "Consultoria" }, // code and city default to the company's
         Amount = 150.5m,
-        CompetenceDate = "2026-01-31",
+        CompetenceDate = "2026-10-16",
+        Options = new InvoiceOptionsInput { Email = new InvoiceEmailOptions { Send = true } },
     },
-    idempotencyKey: "my-key-0001"); // optional Idempotency-Key header
+    idempotencyKey: "order-42"); // the same key never issues twice
 
 if (created.IsSuccess)
     Console.WriteLine(created.Data!.Status); // "queued"
 ```
 
+Set `Options = new InvoiceOptionsInput { Type = InvoiceTypes.Schedule }` with a future `CompetenceDate` to schedule the issuance.
+
 ### Every page of a list
 
 ```csharp
-await foreach (var item in client.Credits.IterateHistoryAsync(limit: 100))
+await foreach (var item in client.Invoices.IterateAsync(new InvoiceListParams { Status = InvoiceStatuses.Authorized }))
 {
-    if (item.Error is { } error) { /* page failure — logged, never thrown */ break; }
-    Console.WriteLine(item.Data!.Id);
+    if (item.Error is { } error) { /* a page failed: reported, never thrown */ break; }
+    Console.WriteLine(item.Data!.NfseNumber);
 }
 ```
 
-### Downloads
+### Download the PDF or XML
+
+The invoice must be `authorized` and have its documents ready.
 
 ```csharp
 var pdf = await client.Invoices.PdfAsync("inv_...");
 if (pdf.IsSuccess)
-    await File.WriteAllBytesAsync("invoice.pdf", pdf.Data!.Buffer);
+    await File.WriteAllBytesAsync("nfse.pdf", pdf.Data!.Buffer); // also MimeType and FileName
 ```
 
-### Updating a company
+### Update a company
 
 ```csharp
 await client.Companies.UpdateAsync("cmp_...", new CompanyUpdateParams
 {
-    TradeName = "ACME",      // sent
-    MunicipalReg = null,     // explicit null clears the field on the server
+    TradeName = "ACME",    // sent
+    MunicipalReg = null,   // an explicit null clears the field on the server
     // everything untouched is omitted from the request body
 });
 ```
 
-## Webhook verification
+### Verify webhook signatures
 
-Verify signatures against the **raw** request body — never re-serialize first:
+Verify against the raw request body, never a re-serialized one:
 
 ```csharp
-// in your ASP.NET Core handler: await request.Body.ReadAsByteArrayAsync()
-var valid = CorvoWebhooks.VerifySignature(rawBody, signatureHeader, "whsec_...");
-if (!valid) return Results.Unauthorized();
+// ASP.NET Core: read the raw bytes of the request body
+var valid = CorvoWebhooks.VerifySignature(rawBody, request.Headers["X-Corvo-Signature"], webhookSecret);
+if (!valid) return Results.BadRequest();
+// Deduplicate by the event id: the same event can be delivered more than once.
 ```
 
-HMAC-SHA256, lowercase hex, `sha256=<hex>` header, compared in constant time.
+`WebhookEvents.All` lists the 9 events you can subscribe to. The `webhook.test` event is only sent by `Webhooks.TestAsync`.
 
-## API surface
+## Resources
 
 | Namespace | Operations |
 | --- | --- |
 | `client.Companies` | `CreateAsync`, `GetAsync`, `UpdateAsync`, `RemoveAsync`, `ListAsync`, `IterateAsync` |
-| `client.Certificates` | `UploadAsync` (multipart), `ListAsync`, `RemoveAsync` |
-| `client.Invoices` | `CreateAsync`, `GetAsync`, `ListAsync`, `IterateAsync`, `EventsAsync`, `PdfAsync`, `XmlAsync`, `DownloadUrlAsync`, `SendEmailAsync` |
-| `client.Webhooks` | `ListAsync`, `CreateAsync`, `RemoveAsync`, `TestAsync`, `Deliveries.ListAsync`, `Deliveries.IterateAsync`, `Deliveries.StatsAsync`, `Deliveries.RetryAsync` |
+| `client.Certificates` | `UploadAsync`, `ListAsync`, `RemoveAsync` |
+| `client.Invoices` | `CreateAsync`, `CalculateAsync`, `GetAsync`, `ListAsync`, `IterateAsync`, `EventsAsync`, `PdfAsync`, `XmlAsync`, `DownloadUrlAsync`, `SendEmailAsync` |
+| `client.Webhooks` | `ListAsync`, `CreateAsync`, `RemoveAsync`, `TestAsync`, `Deliveries.ListAsync/IterateAsync/StatsAsync/RetryAsync` |
 | `client.Credits` | `BalanceAsync`, `PlansAsync`, `HistoryAsync`, `IterateHistoryAsync` |
 | `client.Billing` | `PlanAsync`, `UsageAsync` |
-| `client.Health` | `LiveAsync`, `ReadyAsync` (public, raw JSON) |
+| `client.Plans` | `ListAsync`, `GetAsync`, `QuoteAsync` (public price catalog) |
+| `client.Health` | `LiveAsync`, `ReadyAsync` |
 
-Auth is always the `X-API-Key` header (never `Authorization: Bearer`). The path prefix defaults to `v1` and can be overridden with `CorvoOptions.Prefix` for installs with a custom `API_PREFIX`.
+Changing plans and the billing portal exist only in the dashboard, so they are not in the SDK.
 
-## CLI
+## Configuration
 
-This package is library-only. The multi-platform Corvo CLI ships with [`corvo-nfse-node`](https://github.com/corvo-technology/corvo-nfse-node) (`npm i -g corvo-nfse-node`).
+| Option | Environment | Default |
+| --- | --- | --- |
+| `ApiKey` | `CORVO_API_KEY` | required |
+| `BaseUrl` | `CORVO_BASE_URL` | `https://api.corvo.tech` |
+| `Prefix` | none | `v1` |
+| `Timeout` | none | 30 seconds |
+| `AllowInsecureHttp` | none | `false` (`http://` only for loopback and private hosts) |
+| `HttpMessageHandler` | none | the default handler |
 
-## The contract (in-depth)
+## Behavior
 
-Nine SDKs, one behavior. This SDK implements the same analysis as every other Corvo SDK, mirrored from the canonical Node SDK.
-
-**Auth.** Every request carries `X-API-Key` (never `Authorization: Bearer`). Keys are scoped per tenant; the base URL defaults to `https://api.corvo.tech` and is overridable for self-hosted deployments. All routes live under the `v1` prefix.
-
-**Response envelope.** Endpoints return one of three shapes, and the SDK unwraps them idiomatically: `{ "data": ... }` (single resource), `{ "data": { "props": ... } }` (resource behind a `props` wrapper), or no envelope (health checks, raw downloads). List endpoints return `{ "data": [...], "pagination": { "limit", "hasMore", "nextCursor" } }`. A `204 No Content` maps to an empty result.
-
-**Errors never throw.** Network failures, timeouts, non-2xx responses, and malformed JSON all resolve to a typed error carrying `status`, `code`, `message`, `details`, `requestId`, and `retryAfter` — returned alongside (or as) the result, never raised. `code` falls back to `http_<status>` when the body doesn't carry one; transport-level failures use `network_error` / `timeout` / `invalid_json`. The only operation that raises is the `iterate` helper, and only on the first page's failure.
-
-**Pagination.** List endpoints are cursor-paginated. The SDK exposes both a `list` (single page) and an `iterate`/stream helper that walks `nextCursor` until `hasMore` is false.
-
-**Idempotency.** Invoice create and send-email accept an idempotency key, sent as the `Idempotency-Key` header so retries are safe.
-
-**Webhooks.** Deliveries are signed with HMAC-SHA256 over the raw body. The SDK exposes a timing-safe `verifySignature(rawBody, header, secret)`.
-
-**Surface.** Exactly 28 operations across companies, certificates, invoices, webhooks (incl. nested deliveries), credits, and billing — plus `health/live` and `health/ready`.
+- **Auth.** Every request sends `X-API-Key`. Keys are `corvo_test_...` or `corvo_live_...` and belong to one account and environment; the key decides the environment.
+- **Responses.** Single resources and list items come back as the API's `data`; lists add `Pagination`. Optional fields are nullable.
+- **Errors.** `Code` is the API's `ERROR_*` code, falling back to `http_<status>`; transport failures use `network_error`, `timeout` and `invalid_json`. On `429`, `RetryAfter` holds the seconds to wait.
 
 ## Development
 
 ```bash
-dotnet restore
 dotnet build
-dotnet test
+dotnet test   # the contract test is skipped without env
 ```
 
-Tests run in three layers: unit tests over a mock `HttpMessageHandler` (no network), known-vector tests for webhook HMAC verification, and an optional contract test that skips itself unless `CORVO_API_KEY` and `CORVO_BASE_URL` are set.
+The contract test runs only when `CORVO_API_KEY` and `CORVO_BASE_URL` point to a reachable instance.
 
 ## License
 
-MIT © Corvo Technology 2026
+MIT, see [LICENSE](LICENSE).

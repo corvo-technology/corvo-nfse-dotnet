@@ -105,4 +105,7 @@ public sealed record QuotaStatus
     public int MaxActiveCompanies { get; init; }
     public string? PeriodStart { get; init; }
     public string? PeriodEnd { get; init; }
+
+    /// <summary>Set when <c>CanEmit</c> is false: no_credits, daily_limit_exceeded, company_limit_exceeded or plan_blocked.</summary>
+    public string? Reason { get; init; }
 }

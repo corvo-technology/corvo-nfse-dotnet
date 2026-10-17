@@ -18,7 +18,7 @@ public sealed class CreditsResource
         => _http.ListAsync<CreditPlan>(
             "/credits/plans",
             HttpTransport.Query(("limit", limit), ("cursor", cursor)),
-            HttpTransport.MapProps<CreditPlan>(),
+            HttpTransport.MapPlain<CreditPlan>(),
             ct);
 
     /// <summary>Credit ledger, cursor-paginated (<c>GET /v1/credits/history</c>).</summary>
@@ -26,7 +26,7 @@ public sealed class CreditsResource
         => _http.ListAsync<CreditTransaction>(
             "/credits/history",
             HttpTransport.Query(("limit", limit), ("cursor", cursor)),
-            HttpTransport.MapProps<CreditTransaction>(),
+            HttpTransport.MapPlain<CreditTransaction>(),
             ct);
 
     /// <summary>Walks every page of the credit ledger; a page failure is yielded as an error result.</summary>
@@ -34,6 +34,6 @@ public sealed class CreditsResource
         => _http.IterateAsync<CreditTransaction>(
             "/credits/history",
             HttpTransport.Query(("limit", limit), ("cursor", cursor)),
-            HttpTransport.MapProps<CreditTransaction>(),
+            HttpTransport.MapPlain<CreditTransaction>(),
             ct);
 }

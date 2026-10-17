@@ -15,6 +15,7 @@ public class CompaniesTests
             LegalName = "Loja Center",
             TaxId = "12345678000119",
             TaxRegime = TaxRegimes.SimplesNacional,
+            MunicipalityCode = "3550308",
             Address = new CompanyAddressInput
             {
                 Street = "Rua A",

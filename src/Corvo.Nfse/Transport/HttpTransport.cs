@@ -330,15 +330,6 @@ internal sealed partial class HttpTransport : IDisposable
     public static Func<JsonElement, T> MapPlain<T>()
         => element => Deserialize<T>(element)!;
 
-    /// <summary>Item mapper for <c>{ props: ... }</c> entities (Invoice, InvoiceEvent, Plan, CreditTransaction).</summary>
-    public static Func<JsonElement, T> MapProps<T>()
-        => element =>
-            element.ValueKind == JsonValueKind.Object &&
-            element.TryGetProperty("props", out var props) &&
-            props.ValueKind != JsonValueKind.Null
-                ? Deserialize<T>(props)!
-                : default!;
-
     internal static T? Deserialize<T>(JsonElement element)
         => element.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined
             ? default
@@ -443,15 +434,8 @@ internal sealed partial class HttpTransport : IDisposable
         {
             case UnwrapMode.None:
                 return Deserialize<T>(body);
-            case UnwrapMode.Data:
-                return TryGetData(body, out var data) ? Deserialize<T>(data) : default;
             default:
-                return TryGetData(body, out var envelope) &&
-                       envelope.ValueKind == JsonValueKind.Object &&
-                       envelope.TryGetProperty("props", out var props) &&
-                       props.ValueKind != JsonValueKind.Null
-                    ? Deserialize<T>(props)
-                    : default;
+                return TryGetData(body, out var data) ? Deserialize<T>(data) : default;
         }
     }
 
