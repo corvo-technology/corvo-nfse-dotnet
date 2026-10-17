@@ -82,6 +82,6 @@ public class ConstructionTests
     [Fact]
     public void Version_constant_matches_the_package()
     {
-        Assert.Equal("0.1.0", CorvoClient.Version);
+        Assert.Equal("0.1.1", CorvoClient.Version);
     }
 }

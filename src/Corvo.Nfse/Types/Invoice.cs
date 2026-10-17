@@ -25,16 +25,26 @@ public static class InvoiceStages
     public const string Failed = "failed";
 }
 
-/// <summary>Customer payload for invoice creation.</summary>
+/// <summary>
+/// The customer (tomador) of an invoice. When a customer is sent, <see cref="TaxId"/> (CPF or CNPJ)
+/// is required; leave <see cref="InvoiceCreateParams.Customer"/> null for an invoice without one.
+/// </summary>
 public sealed record InvoiceCustomerInput
 {
-    public required string Name { get; init; }
+    /// <summary>CPF or CNPJ.</summary>
     public required string TaxId { get; init; }
+
+    /// <summary>Customer name.</summary>
+    public string? Name { get; init; }
+
+    /// <summary>Customer email; required when the invoice must be emailed.</summary>
     public string? Email { get; init; }
+
+    /// <summary>Optional address.</summary>
     public InvoiceCustomerAddress? Address { get; init; }
 }
 
-/// <summary>Customer address (all fields optional on the wire).</summary>
+/// <summary>Optional customer address; empty fields are omitted from the request.</summary>
 public sealed record InvoiceCustomerAddress
 {
     public string? Street { get; init; }
@@ -44,38 +54,66 @@ public sealed record InvoiceCustomerAddress
     public string? Country { get; init; }
 }
 
-/// <summary>Service description for invoice creation.</summary>
+/// <summary>
+/// The service. Every field is optional: <see cref="Code"/> (national service code, 6 digits)
+/// defaults to the company's and then to <c>100901</c>, <see cref="MunicipalityCode"/> (IBGE, 7 digits)
+/// to the company's city, and <see cref="Description"/> to the name of the service code.
+/// </summary>
 public sealed record InvoiceServiceInput
 {
-    public required string Code { get; init; }
+    public string? Code { get; init; }
     public string? MunicipalityCode { get; init; }
     public string? Description { get; init; }
 }
 
-/// <summary>Email options for invoice creation (<c>options.email.send</c>).</summary>
+/// <summary>Email options of an invoice.</summary>
 public sealed record InvoiceEmailOptions
 {
+    /// <summary>Whether to email the NFS-e to the customer on authorization.</summary>
     public bool? Send { get; init; }
 }
 
-/// <summary>Email behavior options for invoice creation.</summary>
+/// <summary>Per-invoice options.</summary>
 public sealed record InvoiceOptionsInput
 {
     public InvoiceEmailOptions? Email { get; init; }
+
+    /// <summary><c>IMMEDIATE</c> (default) or <c>SCHEDULE</c> with a future competence date (up to 15 days ahead by default).</summary>
+    public string? Type { get; init; }
 }
 
-/// <summary>Body for <c>POST /v1/invoices</c>.</summary>
+/// <summary>Values for <see cref="InvoiceOptionsInput.Type"/>.</summary>
+public static class InvoiceTypes
+{
+    public const string Immediate = "IMMEDIATE";
+    public const string Schedule = "SCHEDULE";
+}
+
+/// <summary>The body of <c>POST /v1/invoices</c> and <c>POST /v1/invoices/calculate</c>.</summary>
 public sealed record InvoiceCreateParams
 {
+    /// <summary>Identify the company by <see cref="CompanyId"/> or <see cref="CompanyTaxId"/>.</summary>
     public string? CompanyId { get; init; }
     public string? CompanyTaxId { get; init; }
     public string? ExternalId { get; init; }
-    public string? CorrelationId { get; init; }
-    public required InvoiceCustomerInput Customer { get; init; }
+
+    /// <summary>Optional: omit it for an invoice without a customer.</summary>
+    public InvoiceCustomerInput? Customer { get; init; }
+
     public required InvoiceServiceInput Service { get; init; }
+
+    /// <summary>Amount in BRL: positive, up to 2 decimal places.</summary>
     public required decimal Amount { get; init; }
+
+    /// <summary><c>YYYY-MM-DD</c>. A future date needs <c>Options.Type = "SCHEDULE"</c>.</summary>
     public required string CompetenceDate { get; init; }
-    public string? Email { get; init; }
+
+    /// <summary>Unconditional discount in BRL, from 0 up to <see cref="Amount"/>.</summary>
+    public decimal? Discount { get; init; }
+
+    /// <summary>Request the email notification (default false); <c>Options.Email.Send</c> wins when set.</summary>
+    public bool? Email { get; init; }
+
     public InvoiceOptionsInput? Options { get; init; }
 }
 
@@ -176,6 +214,9 @@ public sealed record Invoice
     public string DocumentsStatus { get; init; } = string.Empty;
     public string? EmailStatus { get; init; }
     public string Stage { get; init; } = string.Empty;
+
+    /// <summary>When a scheduled invoice is released (ISO); <c>null</c> for an immediate one.</summary>
+    public string? ScheduledFor { get; init; }
 }
 
 /// <summary>Email settings snapshot embedded in an invoice.</summary>
@@ -184,7 +225,7 @@ public sealed record InvoiceEmailSnapshot(bool Send);
 /// <summary>Customer data snapshotted at issue time.</summary>
 public sealed record InvoiceCustomerSnapshot
 {
-    public string Name { get; init; } = string.Empty;
+    public string? Name { get; init; }
     public string? Email { get; init; }
     public string? TaxId { get; init; }
     public InvoiceCustomerAddress? Address { get; init; }
@@ -196,4 +237,55 @@ public sealed record InvoiceServiceSnapshot
     public string? Code { get; init; }
     public string? Description { get; init; }
     public string? MunicipalityCode { get; init; }
+}
+
+/// <summary>One tax of a pre-emission estimate. Amounts are decimal strings.</summary>
+public sealed record CalculatedTaxAmount
+{
+    public string Base { get; init; } = string.Empty;
+
+    /// <summary>Rate in percent; absent on <c>IbsTotal</c>, which sums the state and municipal IBS.</summary>
+    public string? Rate { get; init; }
+
+    public string Amount { get; init; } = string.Empty;
+}
+
+/// <summary>The taxes of a pre-emission estimate.</summary>
+public sealed record CalculatedTaxes
+{
+    public CalculatedTaxAmount? Iss { get; init; }
+    public CalculatedTaxAmount? Cbs { get; init; }
+    public CalculatedTaxAmount? IbsState { get; init; }
+    public CalculatedTaxAmount? IbsCity { get; init; }
+    public CalculatedTaxAmount? IbsTotal { get; init; }
+}
+
+/// <summary>Why an estimate is blocked.</summary>
+public sealed record CalculationBlocking(string Code, string Message, string Step);
+
+/// <summary>A field missing for the estimate.</summary>
+public sealed record CalculationPendingField(string Field, string Reason);
+
+/// <summary>
+/// The pre-emission estimate of <c>POST /v1/invoices/calculate</c>. <see cref="Status"/> is <c>ready</c> or
+/// <c>blocked</c>: a fiscal gap is data, not an error.
+/// </summary>
+public sealed record InvoiceCalculation
+{
+    public bool PreEmission { get; init; }
+    public string Status { get; init; } = string.Empty;
+    public string? Disclaimer { get; init; }
+    public string? CompetenceDate { get; init; }
+    public string? TaxRegime { get; init; }
+    public JsonElement Classification { get; init; }
+    public JsonElement Applicability { get; init; }
+    public CalculatedTaxes Taxes { get; init; } = new();
+    public JsonElement Withholdings { get; init; }
+    public string? NetReceivableAmount { get; init; }
+    public bool? CollectionWaived { get; init; }
+    public JsonElement Calculation { get; init; }
+    public JsonElement Warnings { get; init; }
+    public IReadOnlyList<CalculationPendingField> PendingFields { get; init; } = Array.Empty<CalculationPendingField>();
+    public CalculationBlocking? Blocking { get; init; }
+    public JsonElement Trace { get; init; }
 }

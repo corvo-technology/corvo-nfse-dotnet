@@ -17,7 +17,7 @@ public class InvoicesTests
     [Fact]
     public async Task Create_sends_camel_case_body_with_idempotency_key()
     {
-        var handler = TestHandler.RespondJson("""{"data":{"props":{"id":"inv_1","status":"queued"}}}""");
+        var handler = TestHandler.RespondJson("""{"data":{"id":"inv_1","status":"queued"}}""");
         using var client = TestClient.Create(handler);
 
         var result = await client.Invoices.CreateAsync(NewInvoice(), idempotencyKey: "idem_1");
@@ -29,7 +29,7 @@ public class InvoicesTests
         var request = handler.Requests[0];
         Assert.Equal("https://api.test.local/v1/invoices", request.Url);
         Assert.Equal(
-            """{"companyId":"cmp_1","customer":{"name":"Joao Silva","taxId":"52998224725"},"service":{"code":"0101","description":"Services"},"amount":150.5,"competenceDate":"2026-01-31"}""",
+            """{"companyId":"cmp_1","customer":{"taxId":"52998224725","name":"Joao Silva"},"service":{"code":"0101","description":"Services"},"amount":150.5,"competenceDate":"2026-01-31"}""",
             request.Body);
         Assert.Equal("idem_1", request.Headers["Idempotency-Key"]);
     }
@@ -38,7 +38,7 @@ public class InvoicesTests
     public async Task List_sends_invoice_filters_as_query()
     {
         var handler = TestHandler.RespondJson(
-            """{"data":[{"props":{"id":"inv_1"}}],"pagination":{"limit":1,"hasMore":false,"nextCursor":null}}""");
+            """{"data":[{"id":"inv_1"}],"pagination":{"limit":1,"hasMore":false,"nextCursor":null}}""");
         using var client = TestClient.Create(handler);
 
         await client.Invoices.ListAsync(new InvoiceListParams
@@ -54,10 +54,10 @@ public class InvoicesTests
     }
 
     [Fact]
-    public async Task Events_uses_the_props_envelope()
+    public async Task Events_returns_the_items()
     {
         var handler = TestHandler.RespondJson(
-            """{"data":[{"props":{"id":"evt_1","invoiceId":"inv_1","toStatus":"authorized"}}],"pagination":{"limit":50,"hasMore":false,"nextCursor":null}}""");
+            """{"data":[{"id":"evt_1","invoiceId":"inv_1","toStatus":"authorized"}],"pagination":{"limit":50,"hasMore":false,"nextCursor":null}}""");
         using var client = TestClient.Create(handler);
 
         var result = await client.Invoices.EventsAsync("inv_1");

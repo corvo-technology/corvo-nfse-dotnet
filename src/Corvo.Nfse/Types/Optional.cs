@@ -41,7 +41,9 @@ public sealed record CompanyUpdateParams
     public string? LegalName { get; init; }
     public string? TradeName { get; init; }
     public Optional<string> MunicipalReg { get; init; }
+    public bool? SendMunicipalReg { get; init; }
     public Optional<string> MunicipalityCode { get; init; }
+    public Optional<string> DefaultServiceCode { get; init; }
     public string? TaxRegime { get; init; }
     public bool? SimpleNational { get; init; }
     public Optional<CompanyAddressInput> Address { get; init; }
@@ -82,9 +84,19 @@ public sealed record CompanyUpdateParams
             Put("municipalReg", MunicipalReg.Value);
         }
 
+        if (SendMunicipalReg is not null)
+        {
+            Put("sendMunicipalReg", SendMunicipalReg);
+        }
+
         if (MunicipalityCode.IsSet)
         {
             Put("municipalityCode", MunicipalityCode.Value);
+        }
+
+        if (DefaultServiceCode.IsSet)
+        {
+            Put("defaultServiceCode", DefaultServiceCode.Value);
         }
 
         if (TaxRegime is not null)

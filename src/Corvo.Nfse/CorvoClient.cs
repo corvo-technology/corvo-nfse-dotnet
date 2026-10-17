@@ -6,7 +6,7 @@ namespace Corvo.Nfse;
 /// <summary>
 /// The Corvo NFS-e API client. Composes the resource namespaces over a shared transport:
 /// <see cref="Companies"/>, <see cref="Certificates"/>, <see cref="Invoices"/>,
-/// <see cref="Webhooks"/>, <see cref="Credits"/>, <see cref="Billing"/>, <see cref="Health"/>.
+/// <see cref="Webhooks"/>, <see cref="Credits"/>, <see cref="Billing"/>, <see cref="Plans"/>, <see cref="Health"/>.
 /// </summary>
 /// <example>
 /// <code>
@@ -17,8 +17,8 @@ namespace Corvo.Nfse;
 /// </example>
 public sealed class CorvoClient : IDisposable
 {
-    /// <summary>The SDK version, mirroring the package version.</summary>
-    public const string Version = "0.1.0";
+    /// <summary>The SDK version, the same as the package version.</summary>
+    public const string Version = "0.1.1";
 
     private readonly HttpTransport _transport;
 
@@ -28,7 +28,7 @@ public sealed class CorvoClient : IDisposable
     /// <summary>Certificates: upload (multipart), list, remove.</summary>
     public CertificatesResource Certificates { get; }
 
-    /// <summary>Invoices: create, get, list, iterate, events, pdf, xml, downloadUrl, sendEmail.</summary>
+    /// <summary>Invoices: create, calculate, get, list, iterate, events, pdf, xml, downloadUrl, sendEmail.</summary>
     public InvoicesResource Invoices { get; }
 
     /// <summary>Webhooks: list, create, remove, test, plus the nested <c>Deliveries</c> namespace.</summary>
@@ -39,6 +39,9 @@ public sealed class CorvoClient : IDisposable
 
     /// <summary>Billing: plan, usage.</summary>
     public BillingResource Billing { get; }
+
+    /// <summary>The public price catalog: list, get, quote.</summary>
+    public PlansResource Plans { get; }
 
     /// <summary>Public health checks: live, ready.</summary>
     public HealthResource Health { get; }
@@ -73,6 +76,7 @@ public sealed class CorvoClient : IDisposable
         Webhooks = new WebhooksResource(_transport);
         Credits = new CreditsResource(_transport);
         Billing = new BillingResource(_transport);
+        Plans = new PlansResource(_transport);
         Health = new HealthResource(_transport);
     }
 
