@@ -13,6 +13,9 @@ public static class WebhookEvents
     public const string InvoiceDocumentsReady = "nfse.invoice.documents_ready";
     public const string InvoiceEmailSent = "nfse.invoice.email_sent";
     public const string InvoiceEmailFailed = "nfse.invoice.email_failed";
+    public const string InvoiceFiscalDiscrepancy = "nfse.invoice.fiscal_discrepancy";
+
+    /// <summary>Only sent by <c>Webhooks.TestAsync</c>; it cannot be subscribed.</summary>
     public const string WebhookTest = "webhook.test";
 
     /// <summary>All nine subscribable events.</summary>
@@ -26,7 +29,7 @@ public static class WebhookEvents
         InvoiceDocumentsReady,
         InvoiceEmailSent,
         InvoiceEmailFailed,
-        WebhookTest,
+        InvoiceFiscalDiscrepancy,
     };
 }
 

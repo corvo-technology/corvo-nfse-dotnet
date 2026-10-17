@@ -3,8 +3,8 @@ using Corvo.Nfse.Transport;
 namespace Corvo.Nfse;
 
 /// <summary>
-/// Invoices: create (idempotent), get, list, iterate, events, pdf, xml, downloadUrl,
-/// sendEmail (idempotent). Invoice entities use the <c>data + props</c> envelope.
+/// Invoices: create (idempotent), calculate, get, list, iterate, events, pdf, xml, downloadUrl,
+/// sendEmail (idempotent).
 /// </summary>
 public sealed class InvoicesResource
 {
@@ -25,7 +25,18 @@ public sealed class InvoicesResource
             "/invoices",
             body: parameters,
             idempotencyKey: idempotencyKey,
-            unwrap: UnwrapMode.DataWithProps,
+            ct: ct);
+
+    /// <summary>
+    /// Estimates the taxes of an invoice without issuing, storing or charging anything
+    /// (<c>POST /v1/invoices/calculate</c>). A fiscal gap is not an error: the result has
+    /// <c>Status == "blocked"</c> with <c>Blocking</c> and <c>PendingFields</c>.
+    /// </summary>
+    public Task<Result<InvoiceCalculation>> CalculateAsync(InvoiceCreateParams parameters, CancellationToken ct = default)
+        => _http.RequestAsync<InvoiceCalculation>(
+            HttpMethod.Post,
+            "/invoices/calculate",
+            body: parameters,
             ct: ct);
 
     /// <summary>Fetches an invoice (<c>GET /v1/invoices/{id}</c>).</summary>
@@ -33,7 +44,6 @@ public sealed class InvoicesResource
         => _http.RequestAsync<Invoice>(
             HttpMethod.Get,
             $"/invoices/{Uri.EscapeDataString(id)}",
-            unwrap: UnwrapMode.DataWithProps,
             ct: ct);
 
     /// <summary>Lists invoices (<c>GET /v1/invoices</c>).</summary>
@@ -50,7 +60,7 @@ public sealed class InvoicesResource
                 ("externalId", parameters.ExternalId),
                 ("limit", parameters.Limit),
                 ("cursor", parameters.Cursor)),
-            HttpTransport.MapProps<Invoice>(),
+            HttpTransport.MapPlain<Invoice>(),
             ct);
     }
 
@@ -68,7 +78,7 @@ public sealed class InvoicesResource
                 ("externalId", parameters.ExternalId),
                 ("limit", parameters.Limit),
                 ("cursor", parameters.Cursor)),
-            HttpTransport.MapProps<Invoice>(),
+            HttpTransport.MapPlain<Invoice>(),
             ct);
     }
 
@@ -81,7 +91,7 @@ public sealed class InvoicesResource
         => _http.ListAsync<InvoiceEvent>(
             $"/invoices/{Uri.EscapeDataString(id)}/events",
             HttpTransport.Query(("limit", limit), ("cursor", cursor)),
-            HttpTransport.MapProps<InvoiceEvent>(),
+            HttpTransport.MapPlain<InvoiceEvent>(),
             ct);
 
     /// <summary>Downloads the rendered PDF (<c>GET /v1/invoices/{id}/pdf</c>).</summary>

@@ -22,10 +22,10 @@ public class CreditsBillingHealthTests
     }
 
     [Fact]
-    public async Task Credits_plans_use_the_props_envelope()
+    public async Task Credits_plans_return_the_items()
     {
         var handler = TestHandler.RespondJson(
-            """{"data":[{"props":{"id":"plan_1","slug":"starter","name":"Starter","creditUnitPriceCents":100}}],"pagination":{"limit":20,"hasMore":false,"nextCursor":null}}""");
+            """{"data":[{"id":"plan_1","slug":"starter","name":"Starter","creditUnitPriceCents":100}],"pagination":{"limit":20,"hasMore":false,"nextCursor":null}}""");
         using var client = TestClient.Create(handler);
 
         var result = await client.Credits.PlansAsync();
@@ -40,8 +40,8 @@ public class CreditsBillingHealthTests
     public async Task Credit_history_iterates_across_pages()
     {
         var handler = TestHandler.Sequence(
-            """{"data":[{"props":{"id":"txn_1","type":"purchase"}},{"props":{"id":"txn_2","type":"consume"}}],"pagination":{"limit":2,"hasMore":true,"nextCursor":"c2"}}""",
-            """{"data":[{"props":{"id":"txn_3","type":"consume"}}],"pagination":{"limit":2,"hasMore":false,"nextCursor":null}}""");
+            """{"data":[{"id":"txn_1","type":"purchase"},{"id":"txn_2","type":"consume"}],"pagination":{"limit":2,"hasMore":true,"nextCursor":"c2"}}""",
+            """{"data":[{"id":"txn_3","type":"consume"}],"pagination":{"limit":2,"hasMore":false,"nextCursor":null}}""");
         using var client = TestClient.Create(handler);
 
         var ids = new List<string>();

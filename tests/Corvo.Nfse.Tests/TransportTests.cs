@@ -21,9 +21,9 @@ public class TransportTests
     }
 
     [Fact]
-    public async Task Unwraps_data_props_for_invoice_entities()
+    public async Task Reads_the_invoice_straight_from_data()
     {
-        var handler = TestHandler.RespondJson("""{"data":{"props":{"id":"inv_1","status":"authorized"}}}""");
+        var handler = TestHandler.RespondJson("""{"data":{"id":"inv_1","status":"authorized"}}""");
         using var client = TestClient.Create(handler);
 
         var result = await client.Invoices.GetAsync("inv_1");
@@ -98,13 +98,14 @@ public class TransportTests
             LegalName = "Loja Center",
             TaxId = "12345678000119",
             TaxRegime = TaxRegimes.SimplesNacional,
+            MunicipalityCode = "3550308",
         });
 
         var request = handler.Requests[0];
         Assert.Equal(HttpMethod.Post, request.Method);
         Assert.Equal("https://api.test.local/v1/companies", request.Url);
         Assert.Equal(
-            """{"legalName":"Loja Center","taxId":"12345678000119","taxRegime":"Simples Nacional"}""",
+            """{"legalName":"Loja Center","taxId":"12345678000119","taxRegime":"Simples Nacional","municipalityCode":"3550308"}""",
             request.Body);
     }
 
@@ -130,7 +131,7 @@ public class TransportTests
     [Fact]
     public async Task Idempotency_key_header_is_forwarded()
     {
-        var handler = TestHandler.RespondJson("""{"data":{"props":{"id":"inv_1"}}}""");
+        var handler = TestHandler.RespondJson("""{"data":{"id":"inv_1"}}""");
         using var client = TestClient.Create(handler);
 
         await client.Invoices.SendEmailAsync("inv_1", idempotencyKey: "idem_abc");
@@ -286,12 +287,12 @@ public class TransportTests
     }
 
     [Fact]
-    public async Task List_maps_props_wrapped_items()
+    public async Task List_returns_the_items()
     {
         var handler = TestHandler.RespondJson(
             """
             {
-              "data": [{"props":{"id":"inv_1"}},{"props":{"id":"inv_2"}}],
+              "data": [{"id":"inv_1"},{"id":"inv_2"}],
               "pagination": {"limit":2,"hasMore":false,"nextCursor":null}
             }
             """);
