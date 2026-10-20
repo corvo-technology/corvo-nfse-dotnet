@@ -13,6 +13,12 @@ public static class InvoiceStatuses
     public const string ReconciliationRequired = "reconciliation_required";
     public const string ManualReview = "manual_review";
     public const string Failed = "failed";
+
+    /// <summary>The NFS-e cancellation event is being processed by the Sefin.</summary>
+    public const string Cancelling = "cancelling";
+
+    /// <summary>The invoice is cancelled.</summary>
+    public const string Cancelled = "cancelled";
 }
 
 /// <summary>Invoice stages (pass-through strings).</summary>
@@ -117,6 +123,32 @@ public sealed record InvoiceCreateParams
     public InvoiceOptionsInput? Options { get; init; }
 }
 
+/// <summary>Values for <see cref="InvoiceCancelParams.Reason"/> and <see cref="Invoice.CancellationReason"/>.</summary>
+public static class CancellationReasons
+{
+    /// <summary>The invoice was issued with an error.</summary>
+    public const string IssueError = "issue_error";
+
+    /// <summary>The service was not provided.</summary>
+    public const string ServiceNotProvided = "service_not_provided";
+
+    /// <summary>Any other reason.</summary>
+    public const string Other = "other";
+}
+
+/// <summary>The body of <c>POST /v1/invoices/{id}/cancel</c>.</summary>
+public sealed record InvoiceCancelParams
+{
+    /// <summary>One of <see cref="CancellationReasons"/>.</summary>
+    public required string Reason { get; init; }
+
+    /// <summary>
+    /// Up to 255 characters. The API requires 15 to 255 characters to cancel an authorized invoice or one
+    /// being issued (<c>processing</c>); optional for a <c>queued</c> invoice. Omitted from the request when null.
+    /// </summary>
+    public string? Description { get; init; }
+}
+
 /// <summary>Filters for <c>GET /v1/invoices</c>.</summary>
 public sealed record InvoiceListParams
 {
@@ -217,6 +249,18 @@ public sealed record Invoice
 
     /// <summary>When a scheduled invoice is released (ISO); <c>null</c> for an immediate one.</summary>
     public string? ScheduledFor { get; init; }
+
+    /// <summary>The reason given when the cancellation was requested (one of <see cref="CancellationReasons"/>).</summary>
+    public string? CancellationReason { get; init; }
+
+    /// <summary>The description given when the cancellation was requested.</summary>
+    public string? CancellationDescription { get; init; }
+
+    /// <summary>When the invoice reached <c>cancelled</c> (ISO).</summary>
+    public string? CancelledAt { get; init; }
+
+    /// <summary>When a cancellation was requested on an invoice still being issued (ISO).</summary>
+    public string? CancellationRequestedAt { get; init; }
 }
 
 /// <summary>Email settings snapshot embedded in an invoice.</summary>
