@@ -4,7 +4,7 @@ namespace Corvo.Nfse;
 
 /// <summary>
 /// Invoices: create (idempotent), calculate, get, list, iterate, events, pdf, xml, downloadUrl,
-/// sendEmail (idempotent).
+/// sendEmail (idempotent), cancel.
 /// </summary>
 public sealed class InvoicesResource
 {
@@ -122,5 +122,27 @@ public sealed class InvoicesResource
             HttpMethod.Post,
             $"/invoices/{Uri.EscapeDataString(id)}/email",
             idempotencyKey: idempotencyKey,
+            ct: ct);
+
+    /// <summary>
+    /// Requests the cancellation of an invoice (<c>POST /v1/invoices/{id}/cancel</c>) and returns the updated invoice.
+    /// </summary>
+    /// <remarks>
+    /// A <c>queued</c> invoice is cancelled right away (<c>Status == "cancelled"</c>). An authorized invoice goes to
+    /// <c>cancelling</c> while the Sefin processes the cancellation event; an invoice still being issued stays
+    /// <c>processing</c> with <c>CancellationRequestedAt</c> set. Follow the outcome with <see cref="GetAsync"/> or the
+    /// <c>nfse.invoice.cancelled</c> / <c>nfse.invoice.cancellation_rejected</c> webhooks: if the Sefin rejects it, the
+    /// invoice goes back to <c>authorized</c> with <c>LastErrorCode</c> and <c>LastErrorMessage</c>. Repeating the
+    /// request returns the current state. <c>retry_pending</c>, <c>reconciliation_required</c> and
+    /// <c>manual_review</c> invoices fail with <c>409 ERROR_INVOICE_NOT_CANCELLABLE</c>.
+    /// </remarks>
+    /// <param name="id">The invoice id.</param>
+    /// <param name="parameters">The reason (one of <see cref="CancellationReasons"/>) and an optional description.</param>
+    /// <param name="ct">Cancellation token.</param>
+    public Task<Result<Invoice>> CancelAsync(string id, InvoiceCancelParams parameters, CancellationToken ct = default)
+        => _http.RequestAsync<Invoice>(
+            HttpMethod.Post,
+            $"/invoices/{Uri.EscapeDataString(id)}/cancel",
+            body: parameters,
             ct: ct);
 }

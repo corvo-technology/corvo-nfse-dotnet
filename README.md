@@ -118,6 +118,43 @@ if (pdf.IsSuccess)
     await File.WriteAllBytesAsync("nfse.pdf", pdf.Data!.Buffer); // also MimeType and FileName
 ```
 
+### Cancel an invoice
+
+Give a reason (`CancellationReasons.IssueError`, `CancellationReasons.ServiceNotProvided` or `CancellationReasons.Other`) and, for an authorized invoice or one still being issued, a description of 15 to 255 characters (optional for a `queued` invoice).
+
+```csharp
+var cancel = await client.Invoices.CancelAsync("inv_...", new InvoiceCancelParams
+{
+    Reason = CancellationReasons.IssueError,
+    Description = "Invoice issued with the wrong amount",
+});
+
+if (cancel.Error is { } error)
+{
+    // e.g. 409 ERROR_INVOICE_NOT_CANCELLABLE (retry_pending, reconciliation_required, manual_review)
+    // or 422 for an invalid description
+    Console.WriteLine($"{error.Status} {error.Code}");
+}
+else
+{
+    Console.WriteLine(cancel.Data!.Status); // "cancelled" (queued), "cancelling", or "processing" with CancellationRequestedAt set
+}
+```
+
+Cancelling an authorized NFS-e is asynchronous: check the result with `GetAsync` or the `nfse.invoice.cancelled` and `nfse.invoice.cancellation_rejected` webhooks.
+
+```csharp
+var invoice = (await client.Invoices.GetAsync("inv_...")).Data!;
+switch (invoice.Status)
+{
+    case InvoiceStatuses.Cancelled:  Console.WriteLine($"cancelled at {invoice.CancelledAt}"); break;
+    case InvoiceStatuses.Cancelling: Console.WriteLine("still being processed by the Sefin"); break;
+    case InvoiceStatuses.Authorized: Console.WriteLine($"rejected: {invoice.LastErrorCode} {invoice.LastErrorMessage}"); break;
+}
+```
+
+Repeating the request returns the current state. Cancelling an issued NFS-e does not refund the credit.
+
 ### Update a company
 
 ```csharp
@@ -140,7 +177,7 @@ if (!valid) return Results.BadRequest();
 // Deduplicate by the event id: the same event can be delivered more than once.
 ```
 
-`WebhookEvents.All` lists the 9 events you can subscribe to. The `webhook.test` event is only sent by `Webhooks.TestAsync`.
+`WebhookEvents.All` lists the 11 events you can subscribe to. The `webhook.test` event is only sent by `Webhooks.TestAsync`.
 
 ## Resources
 
@@ -148,7 +185,7 @@ if (!valid) return Results.BadRequest();
 | --- | --- |
 | `client.Companies` | `CreateAsync`, `GetAsync`, `UpdateAsync`, `RemoveAsync`, `ListAsync`, `IterateAsync` |
 | `client.Certificates` | `UploadAsync`, `ListAsync`, `RemoveAsync` |
-| `client.Invoices` | `CreateAsync`, `CalculateAsync`, `GetAsync`, `ListAsync`, `IterateAsync`, `EventsAsync`, `PdfAsync`, `XmlAsync`, `DownloadUrlAsync`, `SendEmailAsync` |
+| `client.Invoices` | `CreateAsync`, `CalculateAsync`, `GetAsync`, `ListAsync`, `IterateAsync`, `EventsAsync`, `PdfAsync`, `XmlAsync`, `DownloadUrlAsync`, `SendEmailAsync`, `CancelAsync` |
 | `client.Webhooks` | `ListAsync`, `CreateAsync`, `RemoveAsync`, `TestAsync`, `Deliveries.ListAsync/IterateAsync/StatsAsync/RetryAsync` |
 | `client.Credits` | `BalanceAsync`, `PlansAsync`, `HistoryAsync`, `IterateHistoryAsync` |
 | `client.Billing` | `PlanAsync`, `UsageAsync` |

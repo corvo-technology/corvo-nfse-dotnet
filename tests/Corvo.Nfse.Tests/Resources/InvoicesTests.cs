@@ -137,4 +137,152 @@ public class InvoicesTests
         Assert.Equal("amount must be positive", error.Message);
         Assert.Equal("req_9", error.RequestId);
     }
+
+    [Fact]
+    public async Task Cancel_posts_reason_and_description_and_returns_the_cancelled_invoice()
+    {
+        var handler = TestHandler.RespondJson(
+            """{"data":{"id":"inv_1","status":"cancelled","cancellationReason":"issue_error","cancellationDescription":"Wrong amount on the invoice","cancelledAt":"2026-10-20T12:00:00.000Z","cancellationRequestedAt":null}}""");
+        using var client = TestClient.Create(handler);
+
+        var result = await client.Invoices.CancelAsync("inv_1", new InvoiceCancelParams
+        {
+            Reason = CancellationReasons.IssueError,
+            Description = "Wrong amount on the invoice",
+        });
+
+        Assert.Null(result.Error);
+        var invoice = result.Data!;
+        Assert.Equal(InvoiceStatuses.Cancelled, invoice.Status);
+        Assert.Equal(CancellationReasons.IssueError, invoice.CancellationReason);
+        Assert.Equal("2026-10-20T12:00:00.000Z", invoice.CancelledAt);
+        var request = handler.Requests[0];
+        Assert.Equal(HttpMethod.Post, request.Method);
+        Assert.Equal("https://api.test.local/v1/invoices/inv_1/cancel", request.Url);
+        Assert.Equal("""{"reason":"issue_error","description":"Wrong amount on the invoice"}""", request.Body);
+    }
+
+    [Fact]
+    public async Task Cancel_omits_the_description_when_not_given_and_escapes_the_id()
+    {
+        var handler = TestHandler.RespondJson("""{"data":{"id":"inv/1","status":"cancelled"}}""");
+        using var client = TestClient.Create(handler);
+
+        await client.Invoices.CancelAsync("inv/1", new InvoiceCancelParams { Reason = CancellationReasons.Other });
+
+        Assert.Equal("https://api.test.local/v1/invoices/inv%2F1/cancel", handler.Requests[0].Url);
+        Assert.Equal("""{"reason":"other"}""", handler.Requests[0].Body);
+    }
+
+    [Fact]
+    public async Task Cancel_returns_a_cancelling_invoice_on_202()
+    {
+        var handler = TestHandler.RespondJson(
+            """{"data":{"id":"inv_1","status":"cancelling","cancellationReason":"service_not_provided","cancellationDescription":"Service was never delivered","cancelledAt":null,"cancellationRequestedAt":"2026-10-20T12:00:00.000Z"}}""",
+            HttpStatusCode.Accepted);
+        using var client = TestClient.Create(handler);
+
+        var result = await client.Invoices.CancelAsync("inv_1", new InvoiceCancelParams
+        {
+            Reason = CancellationReasons.ServiceNotProvided,
+            Description = "Service was never delivered",
+        });
+
+        Assert.Null(result.Error);
+        var invoice = result.Data!;
+        Assert.Equal(InvoiceStatuses.Cancelling, invoice.Status);
+        Assert.Equal(CancellationReasons.ServiceNotProvided, invoice.CancellationReason);
+        Assert.Null(invoice.CancelledAt);
+        Assert.Equal("2026-10-20T12:00:00.000Z", invoice.CancellationRequestedAt);
+    }
+
+    [Fact]
+    public async Task Cancel_surfaces_409_as_an_error_result_with_the_code()
+    {
+        var handler = TestHandler.RespondJson(
+            """{"code":"ERROR_INVOICE_NOT_CANCELLABLE","message":"Invoice cannot be cancelled in status manual_review","requestId":"req_c"}""",
+            HttpStatusCode.Conflict);
+        using var client = TestClient.Create(handler);
+
+        var result = await client.Invoices.CancelAsync("inv_1", new InvoiceCancelParams
+        {
+            Reason = CancellationReasons.Other,
+            Description = "Customer asked for it",
+        });
+
+        Assert.True(result.IsError);
+        Assert.Equal(409, result.Error!.Status);
+        Assert.Equal("ERROR_INVOICE_NOT_CANCELLABLE", result.Error.Code);
+        Assert.Equal("req_c", result.Error.RequestId);
+    }
+
+    [Fact]
+    public async Task Cancel_surfaces_422_as_an_error_result()
+    {
+        var handler = TestHandler.RespondJson(
+            """{"code":"ERROR_VALIDATION","message":["description must be at least 15 characters"]}""",
+            HttpStatusCode.UnprocessableEntity);
+        using var client = TestClient.Create(handler);
+
+        var result = await client.Invoices.CancelAsync("inv_1", new InvoiceCancelParams
+        {
+            Reason = CancellationReasons.Other,
+            Description = "too short",
+        });
+
+        Assert.True(result.IsError);
+        Assert.Equal(422, result.Error!.Status);
+        Assert.Equal("ERROR_VALIDATION", result.Error.Code);
+    }
+
+    [Theory]
+    [InlineData("cancelled", "issue_error", "2026-10-20T12:00:00.000Z", null)]
+    [InlineData("cancelling", "other", null, "2026-10-20T11:00:00.000Z")]
+    public async Task Get_parses_cancellation_status_and_fields(
+        string status, string reason, string? cancelledAt, string? requestedAt)
+    {
+        static string Json(string? v) => v is null ? "null" : "\"" + v + "\"";
+        var handler = TestHandler.RespondJson(
+            "{\"data\":{\"id\":\"inv_1\",\"status\":" + Json(status)
+            + ",\"cancellationReason\":" + Json(reason)
+            + ",\"cancellationDescription\":\"Wrong amount on the invoice\""
+            + ",\"cancelledAt\":" + Json(cancelledAt)
+            + ",\"cancellationRequestedAt\":" + Json(requestedAt) + "}}");
+        using var client = TestClient.Create(handler);
+
+        var result = await client.Invoices.GetAsync("inv_1");
+
+        Assert.Null(result.Error);
+        var invoice = result.Data!;
+        Assert.Equal(status, invoice.Status);
+        Assert.Equal(reason, invoice.CancellationReason);
+        Assert.Equal("Wrong amount on the invoice", invoice.CancellationDescription);
+        Assert.Equal(cancelledAt, invoice.CancelledAt);
+        Assert.Equal(requestedAt, invoice.CancellationRequestedAt);
+    }
+
+    [Fact]
+    public async Task Get_parses_an_invoice_without_cancellation_fields()
+    {
+        var handler = TestHandler.RespondJson("""{"data":{"id":"inv_1","status":"authorized"}}""");
+        using var client = TestClient.Create(handler);
+
+        var result = await client.Invoices.GetAsync("inv_1");
+
+        Assert.Null(result.Error);
+        Assert.Null(result.Data!.CancellationReason);
+        Assert.Null(result.Data.CancellationDescription);
+        Assert.Null(result.Data.CancelledAt);
+        Assert.Null(result.Data.CancellationRequestedAt);
+    }
+
+    [Fact]
+    public void Status_and_reason_constants_match_the_wire_values()
+    {
+        Assert.Equal("cancelling", InvoiceStatuses.Cancelling);
+        Assert.Equal("cancelled", InvoiceStatuses.Cancelled);
+        Assert.Equal("issue_error", CancellationReasons.IssueError);
+        Assert.Equal("service_not_provided", CancellationReasons.ServiceNotProvided);
+        Assert.Equal("other", CancellationReasons.Other);
+    }
 }
