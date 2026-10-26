@@ -1,12 +1,13 @@
 namespace Corvo.Nfse;
 
-/// <summary>Allowed tax regimes (pass-through string).</summary>
+/// <summary>
+/// Allowed tax regimes (pass-through string). Corvo serves only MEI and Simples Nacional: any other
+/// value is rejected with <c>422 ERROR_TAX_REGIME_NOT_SUPPORTED</c>.
+/// </summary>
 public static class TaxRegimes
 {
     public const string Mei = "MEI";
     public const string SimplesNacional = "Simples Nacional";
-    public const string LucroPresumido = "Lucro Presumido";
-    public const string LucroReal = "Lucro Real";
 }
 
 /// <summary>Company address. Every field is optional; <c>State</c> is the two-letter UF and <c>Zip</c> has 8 digits.</summary>
@@ -47,6 +48,19 @@ public sealed record CompanyCreateParams
 
     public bool? SimpleNational { get; init; }
     public string? SpecialRegime { get; init; }
+
+    /// <summary>
+    /// Required for <c>Simples Nacional</c>, ignored for <c>MEI</c>: the effective total rate (%) of
+    /// your DAS, as in the PGDAS-D, e.g. <c>"6.54"</c> (0 to 100, at most 2 decimals).
+    /// </summary>
+    public string? SimplesRate { get; init; }
+
+    /// <summary>
+    /// <c>Simples Nacional</c> only: the effective ISS rate (%) of your bracket (1.80 to 5.00), needed
+    /// when a customer withholds ISS.
+    /// </summary>
+    public string? SimplesIssRate { get; init; }
+
     public CompanyAddressInput? Address { get; init; }
 }
 

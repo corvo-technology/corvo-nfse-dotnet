@@ -13,6 +13,79 @@ public static class InvoiceStatuses
     public const string ReconciliationRequired = "reconciliation_required";
     public const string ManualReview = "manual_review";
     public const string Failed = "failed";
+    public const string Cancelling = "cancelling";
+    public const string Cancelled = "cancelled";
+}
+
+/// <summary>Why an invoice is being cancelled (pass-through strings).</summary>
+public static class InvoiceCancellationReasons
+{
+    public const string IssueError = "issue_error";
+    public const string ServiceNotProvided = "service_not_provided";
+    public const string Other = "other";
+}
+
+/// <summary>The body of <c>POST /v1/invoices/{id}/cancel</c>.</summary>
+public sealed record InvoiceCancelParams
+{
+    /// <summary>One of <see cref="InvoiceCancellationReasons"/>.</summary>
+    public required string Reason { get; init; }
+
+    /// <summary>
+    /// 15 to 255 characters. Required to cancel an authorized or processing invoice; optional for a
+    /// queued one.
+    /// </summary>
+    public string? Description { get; init; }
+}
+
+/// <summary>
+/// One item of <c>Invoices.CreateBatchAsync</c>: the invoice to issue plus its own idempotency key.
+/// </summary>
+public sealed record InvoiceBatchItem
+{
+    public required InvoiceCreateParams Invoice { get; init; }
+
+    /// <summary>
+    /// Up to 255 characters. Repeating it with the same content returns the saved invoice with
+    /// <c>Replayed = true</c> instead of issuing again. The <c>Idempotency-Key</c> header is not used
+    /// by the batch route.
+    /// </summary>
+    public string? IdempotencyKey { get; init; }
+}
+
+/// <summary>Why a batch item was rejected. Rejected items are not saved.</summary>
+public sealed record InvoiceBatchError
+{
+    public string Code { get; init; } = string.Empty;
+    public string Message { get; init; } = string.Empty;
+
+    /// <summary>Field-level issues, when the error has them.</summary>
+    public JsonElement? Details { get; init; }
+}
+
+/// <summary>Outcome of one batch item.</summary>
+public sealed record InvoiceBatchResult
+{
+    /// <summary>Position of the item in the request, starting at 0.</summary>
+    public int Index { get; init; }
+
+    /// <summary><c>accepted</c> (then <see cref="Invoice"/> is set) or <c>rejected</c> (then <see cref="Error"/> is set).</summary>
+    public string Status { get; init; } = string.Empty;
+
+    /// <summary>True when the item repeated an idempotency key already saved with the same content.</summary>
+    public bool? Replayed { get; init; }
+
+    public Invoice? Invoice { get; init; }
+    public InvoiceBatchError? Error { get; init; }
+}
+
+/// <summary>Result of <c>Invoices.CreateBatchAsync</c>: one result per item, in the order sent.</summary>
+public sealed record InvoiceBatchSummary
+{
+    public int Total { get; init; }
+    public int Accepted { get; init; }
+    public int Rejected { get; init; }
+    public IReadOnlyList<InvoiceBatchResult> Results { get; init; } = Array.Empty<InvoiceBatchResult>();
 }
 
 /// <summary>Invoice stages (pass-through strings).</summary>
@@ -108,8 +181,16 @@ public sealed record InvoiceCreateParams
     /// <summary><c>YYYY-MM-DD</c>. A future date needs <c>Options.Type = "SCHEDULE"</c>.</summary>
     public required string CompetenceDate { get; init; }
 
-    /// <summary>Unconditional discount in BRL, from 0 up to <see cref="Amount"/>.</summary>
+    /// <summary>Unconditional discount in BRL, from 0 up to <see cref="Amount"/>, at most 2 decimal places.</summary>
     public decimal? Discount { get; init; }
+
+    /// <summary>
+    /// ISS base deduction declared by the issuer, in BRL: greater than 0 and less than
+    /// <see cref="Amount"/> minus <see cref="Discount"/>, at most 2 decimal places (0 is the same as
+    /// omitting it). The invoice is still issued for the full <see cref="Amount"/>; the issuer is
+    /// responsible for the declared value.
+    /// </summary>
+    public decimal? Deduction { get; init; }
 
     /// <summary>Request the email notification (default false); <c>Options.Email.Send</c> wins when set.</summary>
     public bool? Email { get; init; }
@@ -192,6 +273,13 @@ public sealed record Invoice
     public JsonElement TaxSnapshot { get; init; }
 
     public decimal Amount { get; init; }
+
+    /// <summary>Set only when a discount was declared.</summary>
+    public decimal? Discount { get; init; }
+
+    /// <summary>Set only when an ISS base deduction was declared.</summary>
+    public decimal? Deduction { get; init; }
+
     public string Currency { get; init; } = string.Empty;
     public string CompetenceDate { get; init; } = string.Empty;
     public string? DpsId { get; init; }
@@ -217,6 +305,17 @@ public sealed record Invoice
 
     /// <summary>When a scheduled invoice is released (ISO); <c>null</c> for an immediate one.</summary>
     public string? ScheduledFor { get; init; }
+
+    /// <summary>One of <see cref="InvoiceCancellationReasons"/>; null until a cancellation is requested.</summary>
+    public string? CancellationReason { get; init; }
+
+    public string? CancellationDescription { get; init; }
+
+    /// <summary>When the invoice reached <c>cancelled</c> (ISO), or null.</summary>
+    public string? CancelledAt { get; init; }
+
+    /// <summary>When a cancellation was requested (ISO), or null.</summary>
+    public string? CancellationRequestedAt { get; init; }
 }
 
 /// <summary>Email settings snapshot embedded in an invoice.</summary>

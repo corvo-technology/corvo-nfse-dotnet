@@ -46,6 +46,16 @@ public sealed record CompanyUpdateParams
     public Optional<string> DefaultServiceCode { get; init; }
     public string? TaxRegime { get; init; }
     public bool? SimpleNational { get; init; }
+
+    /// <summary>Empty string clears it; leave unset to keep the current value.</summary>
+    public string? SpecialRegime { get; init; }
+
+    /// <summary>New Simples rate (%), e.g. <c>"6.54"</c>, for example every month. Ignored for MEI.</summary>
+    public string? SimplesRate { get; init; }
+
+    /// <summary>ISS rate (%) of the Simples bracket; an explicit <c>null</c> removes it.</summary>
+    public Optional<string> SimplesIssRate { get; init; }
+
     public Optional<CompanyAddressInput> Address { get; init; }
 
     /// <summary>
@@ -107,6 +117,21 @@ public sealed record CompanyUpdateParams
         if (SimpleNational is not null)
         {
             Put("simpleNational", SimpleNational);
+        }
+
+        if (SpecialRegime is not null)
+        {
+            Put("specialRegime", SpecialRegime);
+        }
+
+        if (SimplesRate is not null)
+        {
+            Put("simplesRate", SimplesRate);
+        }
+
+        if (SimplesIssRate.IsSet)
+        {
+            Put("simplesIssRate", SimplesIssRate.Value);
         }
 
         if (Address.IsSet)

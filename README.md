@@ -51,7 +51,8 @@ var company = await client.Companies.CreateAsync(new CompanyCreateParams
 {
     LegalName = "Empresa Exemplo Ltda",
     TaxId = "11222333000181",
-    TaxRegime = TaxRegimes.SimplesNacional,
+    TaxRegime = TaxRegimes.SimplesNacional, // Mei or SimplesNacional: the only regimes Corvo serves
+    SimplesRate = "6.54",              // required for Simples Nacional: effective DAS rate (%), ignored for MEI
     MunicipalityCode = "3550308",      // IBGE code, 7 digits
     DefaultServiceCode = "010101",     // optional: used when an invoice omits Service.Code
 });
@@ -97,6 +98,50 @@ if (created.IsSuccess)
 ```
 
 Set `Options = new InvoiceOptionsInput { Type = InvoiceTypes.Schedule }` with a future `CompetenceDate` to schedule the issuance.
+
+To declare a deduction from the ISS base, set `Deduction` (greater than 0 and less than `Amount` minus `Discount`). The invoice is still issued for the full `Amount`, and you are responsible for the declared value.
+
+### Issue up to 50 invoices at once
+
+`CreateBatchAsync` takes 1 to 50 items (they can belong to different companies). Items are checked one by one: valid ones are saved together, invalid ones come back `rejected` and are not saved. Set `IdempotencyKey` on each item, so repeating the batch after a timeout returns the saved ones with `Replayed`.
+
+```csharp
+var batch = await client.Invoices.CreateBatchAsync(new[]
+{
+    new InvoiceBatchItem
+    {
+        IdempotencyKey = "sheet-row-2",
+        Invoice = new InvoiceCreateParams
+        {
+            CompanyTaxId = "11222333000181",
+            Service = new InvoiceServiceInput { Description = "Consultoria" },
+            Amount = 150.5m,
+            CompetenceDate = "2026-10-16",
+        },
+    },
+});
+
+foreach (var item in batch.Data!.Results.Where(r => r.Status == "rejected"))
+    Console.WriteLine($"{item.Index} {item.Error!.Code} {item.Error.Message}");
+```
+
+The route allows 10 batches per minute per tenant (`429` with `Retry-After`).
+
+### Cancel an invoice
+
+```csharp
+var cancelled = await client.Invoices.CancelAsync("inv_...", new InvoiceCancelParams
+{
+    Reason = InvoiceCancellationReasons.IssueError, // or ServiceNotProvided, Other
+    Description = "Wrong amount on the invoice",
+});
+```
+
+- `queued`: cancelled at once, `Status` is `"cancelled"` with `CancelledAt` set.
+- `authorized`: `Status` is `"cancelling"` while the cancellation is processed at the Sefin. The issuance credit is not refunded.
+- `processing`: stays `"processing"` with `CancellationRequestedAt` set and is cancelled once authorized.
+
+`Description` (15 to 255 characters) is required for an authorized or processing invoice and optional for a queued one. Read the invoice again (or listen to the `nfse.invoice.cancelled` and `nfse.invoice.cancellation_rejected` webhooks) to see the outcome: `cancelled`, or back to `authorized` with `LastErrorCode` when the cancellation was rejected.
 
 ### Every page of a list
 
@@ -148,7 +193,7 @@ if (!valid) return Results.BadRequest();
 | --- | --- |
 | `client.Companies` | `CreateAsync`, `GetAsync`, `UpdateAsync`, `RemoveAsync`, `ListAsync`, `IterateAsync` |
 | `client.Certificates` | `UploadAsync`, `ListAsync`, `RemoveAsync` |
-| `client.Invoices` | `CreateAsync`, `CalculateAsync`, `GetAsync`, `ListAsync`, `IterateAsync`, `EventsAsync`, `PdfAsync`, `XmlAsync`, `DownloadUrlAsync`, `SendEmailAsync` |
+| `client.Invoices` | `CreateAsync`, `CreateBatchAsync`, `CalculateAsync`, `GetAsync`, `ListAsync`, `IterateAsync`, `EventsAsync`, `PdfAsync`, `XmlAsync`, `DownloadUrlAsync`, `SendEmailAsync`, `CancelAsync` |
 | `client.Webhooks` | `ListAsync`, `CreateAsync`, `RemoveAsync`, `TestAsync`, `Deliveries.ListAsync/IterateAsync/StatsAsync/RetryAsync` |
 | `client.Credits` | `BalanceAsync`, `PlansAsync`, `HistoryAsync`, `IterateHistoryAsync` |
 | `client.Billing` | `PlanAsync`, `UsageAsync` |
