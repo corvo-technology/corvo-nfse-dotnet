@@ -62,4 +62,32 @@ public class CompaniesTests
 
         Assert.Equal("https://api.test.local/v1/companies/cmp%2F1", handler.Requests[0].Url);
     }
+
+    [Fact]
+    public async Task Create_and_update_send_the_simples_rates()
+    {
+        var createHandler = TestHandler.RespondJson("""{"data":{"id":"cmp_1"}}""");
+        using var createClient = TestClient.Create(createHandler);
+        await createClient.Companies.CreateAsync(new CompanyCreateParams
+        {
+            LegalName = "Loja Center",
+            TaxId = "12345678000119",
+            TaxRegime = TaxRegimes.SimplesNacional,
+            MunicipalityCode = "3550308",
+            SimplesRate = "6.54",
+            SimplesIssRate = "3.00",
+        });
+
+        var updateHandler = TestHandler.RespondJson("""{"data":{"id":"cmp_1"}}""");
+        using var updateClient = TestClient.Create(updateHandler);
+        await updateClient.Companies.UpdateAsync("cmp_1", new CompanyUpdateParams
+        {
+            SimplesRate = "7.00",
+            SimplesIssRate = null,
+        });
+
+        Assert.Contains("\"simplesRate\":\"6.54\"", createHandler.Requests[0].Body);
+        Assert.Contains("\"simplesIssRate\":\"3.00\"", createHandler.Requests[0].Body);
+        Assert.Equal("""{"simplesRate":"7.00","simplesIssRate":null}""", updateHandler.Requests[0].Body);
+    }
 }

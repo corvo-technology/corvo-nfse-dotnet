@@ -14,11 +14,13 @@ public static class WebhookEvents
     public const string InvoiceEmailSent = "nfse.invoice.email_sent";
     public const string InvoiceEmailFailed = "nfse.invoice.email_failed";
     public const string InvoiceFiscalDiscrepancy = "nfse.invoice.fiscal_discrepancy";
+    public const string InvoiceCancelled = "nfse.invoice.cancelled";
+    public const string InvoiceCancellationRejected = "nfse.invoice.cancellation_rejected";
 
     /// <summary>Only sent by <c>Webhooks.TestAsync</c>; it cannot be subscribed.</summary>
     public const string WebhookTest = "webhook.test";
 
-    /// <summary>All nine subscribable events.</summary>
+    /// <summary>All eleven subscribable events.</summary>
     public static IReadOnlyList<string> All { get; } = new[]
     {
         InvoiceAuthorized,
@@ -30,6 +32,8 @@ public static class WebhookEvents
         InvoiceEmailSent,
         InvoiceEmailFailed,
         InvoiceFiscalDiscrepancy,
+        InvoiceCancelled,
+        InvoiceCancellationRejected,
     };
 }
 

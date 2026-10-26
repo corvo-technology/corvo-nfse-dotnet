@@ -137,4 +137,62 @@ public class InvoicesTests
         Assert.Equal("amount must be positive", error.Message);
         Assert.Equal("req_9", error.RequestId);
     }
+
+    [Fact]
+    public async Task CreateBatch_posts_the_items_without_an_idempotency_key_header()
+    {
+        var handler = TestHandler.RespondJson(
+            """{"data":{"total":2,"accepted":1,"rejected":1,"results":[{"index":0,"status":"accepted","replayed":true,"invoice":{"id":"inv_1","deduction":20}},{"index":1,"status":"rejected","error":{"code":"ERROR_VALIDATION","message":"Request validation failed"}}]}}""");
+        using var client = TestClient.Create(handler);
+
+        var result = await client.Invoices.CreateBatchAsync(new[]
+        {
+            new InvoiceBatchItem
+            {
+                IdempotencyKey = "sheet-row-2",
+                Invoice = new InvoiceCreateParams
+                {
+                    CompanyTaxId = "11222333000181",
+                    Service = new InvoiceServiceInput { Description = "Consultoria" },
+                    Amount = 150.5m,
+                    Deduction = 20m,
+                    CompetenceDate = "2026-10-01",
+                },
+            },
+        });
+
+        Assert.Null(result.Error);
+        var batch = result.Data!;
+        Assert.Equal(2, batch.Total);
+        Assert.True(batch.Results[0].Replayed);
+        Assert.Equal(20m, batch.Results[0].Invoice!.Deduction);
+        Assert.Equal("ERROR_VALIDATION", batch.Results[1].Error!.Code);
+        var request = handler.Requests[0];
+        Assert.Equal("https://api.test.local/v1/invoices/batches", request.Url);
+        Assert.False(request.Headers.ContainsKey("Idempotency-Key"));
+        Assert.Equal(
+            """{"invoices":[{"companyTaxId":"11222333000181","service":{"description":"Consultoria"},"amount":150.5,"competenceDate":"2026-10-01","deduction":20,"idempotencyKey":"sheet-row-2"}]}""",
+            request.Body);
+    }
+
+    [Fact]
+    public async Task Cancel_posts_reason_and_description()
+    {
+        var handler = TestHandler.RespondJson(
+            """{"data":{"id":"inv_1","status":"cancelling","cancellationReason":"issue_error"}}""");
+        using var client = TestClient.Create(handler);
+
+        var result = await client.Invoices.CancelAsync("inv_1", new InvoiceCancelParams
+        {
+            Reason = InvoiceCancellationReasons.IssueError,
+            Description = "Wrong amount on the invoice",
+        });
+
+        Assert.Null(result.Error);
+        Assert.Equal(InvoiceStatuses.Cancelling, result.Data!.Status);
+        Assert.Equal("issue_error", result.Data.CancellationReason);
+        var request = handler.Requests[0];
+        Assert.Equal("https://api.test.local/v1/invoices/inv_1/cancel", request.Url);
+        Assert.Equal("""{"reason":"issue_error","description":"Wrong amount on the invoice"}""", request.Body);
+    }
 }
