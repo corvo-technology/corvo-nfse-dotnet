@@ -15,7 +15,7 @@
 
   <PropertyGroup>
     <PackageId>Corvo.Nfse</PackageId>
-    <Version>0.1.1</Version>
+    <Version>0.2.0</Version>
     <Authors>Corvo Technology</Authors>
     <Company>Corvo Technology</Company>
     <Product>Corvo NFS-e SDK</Product>
@@ -26,7 +26,7 @@
     <RepositoryType>git</RepositoryType>
     <PackageTags>corvo;nfse;nfs-e;brazil;invoice;fiscal;e-invoice</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>0.1.1: resources are read straight from data (no props wrapper), invoices.CalculateAsync and the public Plans catalog, types aligned with the API.</PackageReleaseNotes>
+    <PackageReleaseNotes>0.2.0: invoices.CreateBatchAsync and invoices.CancelAsync, deduction on invoices, simplesRate/simplesIssRate on companies, MEI and Simples Nacional only.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
