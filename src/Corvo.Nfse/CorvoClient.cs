@@ -18,7 +18,7 @@ namespace Corvo.Nfse;
 public sealed class CorvoClient : IDisposable
 {
     /// <summary>The SDK version, the same as the package version.</summary>
-    public const string Version = "0.1.1";
+    public const string Version = "0.2.0";
 
     private readonly HttpTransport _transport;
 
