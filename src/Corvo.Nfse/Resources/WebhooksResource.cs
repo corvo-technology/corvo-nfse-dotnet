@@ -16,7 +16,10 @@ public sealed class WebhooksResource
     /// <summary>Webhook delivery attempts: list, iterate, stats, retry.</summary>
     public DeliveriesResource Deliveries { get; }
 
-    /// <summary>Lists webhooks (<c>GET /v1/webhooks</c>).</summary>
+    /// <summary>
+    /// Lists webhooks (<c>GET /v1/webhooks</c>). A webhook created with an API key belongs to that key's
+    /// environment (<c>test</c> or <c>live</c>): a test key cannot see or reach live webhooks.
+    /// </summary>
     public Task<Result<Paginated<Webhook>>> ListAsync(int? limit = null, string? cursor = null, CancellationToken ct = default)
         => _http.ListAsync<Webhook>(
             "/webhooks",

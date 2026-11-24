@@ -8,6 +8,8 @@ public static class TaxRegimes
 {
     public const string Mei = "MEI";
     public const string SimplesNacional = "Simples Nacional";
+    public const string LucroPresumido = "Lucro Presumido";
+    public const string LucroReal = "Lucro Real";
 }
 
 /// <summary>Company address. Every field is optional; <c>State</c> is the two-letter UF and <c>Zip</c> has 8 digits.</summary>
@@ -94,4 +96,35 @@ public sealed record Company
     public string? DeletedAt { get; init; }
     /// <summary>What is still pending: <c>municipality_code</c>, <c>certificate</c>.</summary>
     public IReadOnlyList<string> SetupGaps { get; init; } = Array.Empty<string>();
+
+    /// <summary>Effective total rate (%) of the DAS, e.g. <c>"6.54"</c>.</summary>
+    public string? SimplesRate { get; init; }
+
+    /// <summary>Effective ISS rate (%) of the Simples bracket.</summary>
+    public string? SimplesIssRate { get; init; }
+
+    /// <summary>What the Receita says about the municipality's adhesion to the national system.</summary>
+    public MunicipalityAgreement? MunicipalityAgreement { get; init; }
+
+    /// <summary>Registry mismatches found for the company (<c>TAX_REGIME_REGISTRY_MISMATCH</c>, <c>MEI_MUNICIPALITY_MISMATCH</c>).</summary>
+    public IReadOnlyList<RegistryWarning>? Warnings { get; init; }
+}
+
+/// <summary>The municipality's adhesion to the national NFS-e system, as reported by the Receita.</summary>
+public sealed record MunicipalityAgreement
+{
+    /// <summary><c>not_checked</c>, <c>active</c>, <c>inactive</c>, <c>unknown</c> or <c>not_found</c>.</summary>
+    public string Status { get; init; } = string.Empty;
+
+    public string? AgreementType { get; init; }
+    public string? CheckedAt { get; init; }
+}
+
+/// <summary>A registry warning on a company.</summary>
+public sealed record RegistryWarning
+{
+    /// <summary><c>TAX_REGIME_REGISTRY_MISMATCH</c> or <c>MEI_MUNICIPALITY_MISMATCH</c>.</summary>
+    public string Code { get; init; } = string.Empty;
+
+    public string Message { get; init; } = string.Empty;
 }

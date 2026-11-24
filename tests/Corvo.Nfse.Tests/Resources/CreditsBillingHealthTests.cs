@@ -8,16 +8,17 @@ public class CreditsBillingHealthTests
     public async Task Credits_balance_parses()
     {
         var handler = TestHandler.RespondJson(
-            """{"data":{"tenantId":"ten_1","balance":120.5,"overageUnits":10,"overageAmountCents":900,"hardLimit":null}}""");
+            """{"data":{"balance":120,"planRemaining":100,"avulsoBalance":20,"hardLimit":0}}""");
         using var client = TestClient.Create(handler);
 
         var result = await client.Credits.BalanceAsync();
 
         Assert.Null(result.Error);
         var balance = result.Data!;
-        Assert.Equal("ten_1", balance.TenantId);
-        Assert.Equal(120.5m, balance.Balance);
-        Assert.Null(balance.HardLimit);
+        Assert.Equal(120, balance.Balance);
+        Assert.Equal(100, balance.PlanRemaining);
+        Assert.Equal(20, balance.AvulsoBalance);
+        Assert.Equal(0, balance.HardLimit);
         Assert.Equal("https://api.test.local/v1/credits", handler.Requests[0].Url);
     }
 
@@ -62,9 +63,9 @@ public class CreditsBillingHealthTests
             """
             {
               "data": {
-                "plan": {"slug":"scale","name":"Scale","monthly_allowance":5000,"daily_limit":null,"max_active_companies":10,"monthly_price_cents":49900},
-                "subscription": {"status":"active","paid_until":"2026-02-01","cancel_at_period_end":false,"scheduled_plan":null,"blocked":false},
-                "usage": {"overage_units":3,"overage_amount_cents":30,"hard_limit":100,"credits_used":497,"credits_reserved":0,"credits_remaining":5003,"monthly_allowance":5000,"daily_usage":12,"daily_limit":200,"active_companies":2,"max_active_companies":10,"period_start":"2026-01-01","period_end":"2026-02-01"}
+                "plan": {"slug":"escala","name":"Escala","monthly_allowance":1200,"daily_limit":null,"max_active_companies":10,"monthly_price_cents":49900},
+                "subscription": {"status":"active","paid_until":"2026-02-01","cancel_at_period_end":false,"scheduled_plan":null,"blocked":false,"stripe_portal_available":true,"stripe_subscription":true,"pix_subscription":null},
+                "usage": {"avulso_balance":7,"hard_limit":100,"credits_used":497,"credits_reserved":0,"credits_remaining":5003,"monthly_allowance":5000,"daily_usage":12,"daily_limit":200,"active_companies":2,"max_active_companies":10,"period_start":"2026-01-01","period_end":"2026-02-01"}
               }
             }
             """);
@@ -74,8 +75,12 @@ public class CreditsBillingHealthTests
 
         Assert.Null(result.Error);
         var plan = result.Data!;
-        Assert.Equal("scale", plan.Plan.Slug);
-        Assert.Equal(5000, plan.Plan.MonthlyAllowance);
+        Assert.Equal("escala", plan.Plan.Slug);
+        Assert.Equal(1200, plan.Plan.MonthlyAllowance);
+        Assert.True(plan.Subscription.StripePortalAvailable);
+        Assert.True(plan.Subscription.StripeSubscription);
+        Assert.Null(plan.Subscription.PixSubscription);
+        Assert.Equal(7, plan.Usage.AvulsoBalance);
         Assert.Null(plan.Plan.DailyLimit);
         Assert.Equal(49900, plan.Plan.MonthlyPriceCents);
         Assert.Equal("active", plan.Subscription.Status);

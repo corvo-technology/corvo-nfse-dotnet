@@ -2,7 +2,11 @@ using Corvo.Nfse.Transport;
 
 namespace Corvo.Nfse;
 
-/// <summary>The public price catalog (monthly cycle only): list, get, quote.</summary>
+/// <summary>
+/// The public price catalog (monthly cycle only): list, get, quote. These routes need no key and are not part of the
+/// 0.3.0 API contract; the plan data a key can read is in <see cref="CreditsResource.PlansAsync"/> and
+/// <see cref="BillingResource.PlanAsync"/>.
+/// </summary>
 public sealed class PlansResource
 {
     private readonly HttpTransport _http;
@@ -17,7 +21,7 @@ public sealed class PlansResource
             HttpTransport.MapPlain<PlanQuote>(),
             ct);
 
-    /// <summary>The price of one plan: free, developer, growth, scale or volume (<c>GET /v1/plans/{slug}</c>).</summary>
+    /// <summary>The price of one plan: for example free, solo, equipe, empresa or escala (<c>GET /v1/plans/{slug}</c>).</summary>
     public Task<Result<PlanQuote>> GetAsync(string slug, CancellationToken ct = default)
         => _http.RequestAsync<PlanQuote>(HttpMethod.Get, $"/plans/{Uri.EscapeDataString(slug)}", ct: ct);
 

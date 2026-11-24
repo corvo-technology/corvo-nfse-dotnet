@@ -8,7 +8,7 @@
 - **Webhook signature check** in constant time.
 - **No package dependencies**: `HttpClient` and `System.Text.Json` come with .NET. Library only, no CLI.
 
-Full API reference: <https://corvo.tech/en/docs>.
+Full API reference: <https://corvo.tech/en/docs>. The OpenAPI contract this SDK follows (0.3.0) is at <https://corvo.tech/openapi.json>.
 
 ## Install
 
@@ -94,10 +94,71 @@ var created = await client.Invoices.CreateAsync(
     idempotencyKey: "order-42"); // the same key never issues twice
 
 if (created.IsSuccess)
-    Console.WriteLine(created.Data!.Status); // "queued"
+    Console.WriteLine(created.Data!.Invoice!.Status); // "queued"
 ```
 
-Set `Options = new InvoiceOptionsInput { Type = InvoiceTypes.Schedule }` with a future `CompetenceDate` to schedule the issuance.
+`CreateAsync` returns an `InvoiceCreateResult`: `.Invoice` for an immediate issuance, `.Schedule` when `Options.Type` is `Schedule` or `Recurring`.
+
+### Schedule or repeat an invoice
+
+`SCHEDULE` and `RECURRING` create a schedule (the note only exists when it runs, 09:00 on business days); `CompetenceDate` is the first run, from tomorrow on.
+
+```csharp
+var result = await client.Invoices.CreateAsync(new InvoiceCreateParams
+{
+    CompanyTaxId = "11222333000181",
+    Service = new InvoiceServiceInput { Description = "Mensalidade" },
+    Amount = 300m,
+    CompetenceDate = "2026-12-01",
+    Options = new InvoiceOptionsInput
+    {
+        Type = InvoiceTypes.Recurring,
+        Recurrence = new InvoiceRecurrence { Frequency = ScheduleFrequencies.Monthly },
+    },
+});
+var schedule = result.Data!.Schedule!;
+var runs = await client.Schedules.ListRunsAsync(schedule.Id);
+await client.Schedules.PauseAsync(schedule.Id);
+```
+
+### Look up a CNPJ, saved customers and favorite services
+
+```csharp
+var cnpj = await client.Cnpj.LookupAsync("11222333000181");        // legal name, situation, address
+var customers = await client.Customers.SearchAsync(search: "Maria"); // saved customers, paginated
+await client.Customers.UpdateAsync("52998224725", new CustomerUpdateParams { Email = "novo@example.com" });
+await client.ServiceFavorites.CreateAsync("cmp_...", new ServiceFavoriteCreateParams
+{
+    Label = "Consultoria", ServiceCode = "010101", Description = "Consultoria",
+});
+```
+
+### Accountant package
+
+```csharp
+await client.AccountantPackage.UpdateAsync("cmp_...", "contador@example.com"); // null turns the monthly send off
+await client.AccountantPackage.SendAsync("cmp_...", "2026-10");
+var zip = await client.InvoicePackage.DownloadAsync("cmp_...", "2026-10"); // zip.Data!.Buffer
+```
+
+### Import a spreadsheet
+
+```csharp
+var started = await client.Imports.StartAsync(await File.ReadAllBytesAsync("notas.csv"), "notas.csv", companyId: "cmp_...");
+// poll until Status == "ready", fix invalid rows, then emit
+var job = await client.Imports.GetAsync(started.Data!.Id);
+await client.Imports.EmitAsync(started.Data.Id, sendEmail: true);
+```
+
+### Substitute an authorized invoice
+
+```csharp
+await client.Invoices.SubstituteAsync("inv_...", new InvoiceSubstituteParams
+{
+    Description = "Corrigir a descricao do servico",
+    Service = new InvoiceSubstituteService { Description = "Consultoria em TI" },
+}, idempotencyKey: "sub-42");
+```
 
 To declare a deduction from the ISS base, set `Deduction` (greater than 0 and less than `Amount` minus `Discount`). The invoice is still issued for the full `Amount`, and you are responsible for the declared value.
 
@@ -185,7 +246,7 @@ if (!valid) return Results.BadRequest();
 // Deduplicate by the event id: the same event can be delivered more than once.
 ```
 
-`WebhookEvents.All` lists the 9 events you can subscribe to. The `webhook.test` event is only sent by `Webhooks.TestAsync`.
+`WebhookEvents.All` lists the 12 events you can subscribe to. The `webhook.test` event is only sent by `Webhooks.TestAsync`.
 
 ## Resources
 
@@ -193,12 +254,28 @@ if (!valid) return Results.BadRequest();
 | --- | --- |
 | `client.Companies` | `CreateAsync`, `GetAsync`, `UpdateAsync`, `RemoveAsync`, `ListAsync`, `IterateAsync` |
 | `client.Certificates` | `UploadAsync`, `ListAsync`, `RemoveAsync` |
-| `client.Invoices` | `CreateAsync`, `CreateBatchAsync`, `CalculateAsync`, `GetAsync`, `ListAsync`, `IterateAsync`, `EventsAsync`, `PdfAsync`, `XmlAsync`, `DownloadUrlAsync`, `SendEmailAsync`, `CancelAsync` |
+| `client.Invoices` | `CreateAsync`, `CreateBatchAsync`, `CalculateAsync`, `GetAsync`, `ListAsync`, `IterateAsync`, `EventsAsync`, `PdfAsync`, `XmlAsync`, `DownloadUrlAsync`, `SendEmailAsync`, `CancelAsync`, `SubstituteAsync`, `OverviewAsync`, `ReviewAsync` |
+| `client.Customers` | `SearchAsync`, `IterateAsync`, `GetAsync`, `UpdateAsync`, `DeleteAsync` |
+| `client.Cnpj` | `LookupAsync` |
+| `client.ServiceFavorites` | `ListAsync`, `CreateAsync`, `DeleteAsync` |
+| `client.AccountantPackage` | `GetAsync`, `UpdateAsync`, `SendAsync`, `ListSendsAsync` |
+| `client.InvoicePackage` | `SummaryAsync`, `DownloadAsync` |
+| `client.DpsSequence` | `GetAsync`, `SetAsync` |
+| `client.FiscalProfiles` | `ListAsync`, `UpsertAsync`, `ApproveAsync` |
+| `client.ServiceTaxProfiles` | `ListAsync`, `CreateAsync`, `UpdateAsync`, `DeleteAsync`, `ApproveAsync` |
+| `client.FiscalPortal` | `StatusAsync` |
+| `client.Schedules` | `ListAsync`, `IterateAsync`, `GetAsync`, `UpdateAsync`, `PauseAsync`, `ResumeAsync`, `CancelAsync`, `ListRunsAsync` |
+| `client.Imports` | `StartAsync`, `ListAsync`, `GetAsync`, `EmitAsync`, `ListRowsAsync`, `IterateRowsAsync`, `UpdateRowAsync`, `DiscardAsync`, `DownloadTemplateAsync`, `DownloadErrorsAsync` |
+| `client.Integrations` | `ListProvidersAsync` |
+| `client.IntegrationConnections` | `ListAsync`, `CreateAsync`, `GetAsync`, `ValidateAsync`, `UpdateCredentialsAsync`, `ActivateAsync`, `PauseAsync`, `DisconnectAsync`, `ListRulesAsync`, `ReplaceRulesAsync`, `ListEventsAsync`, `ListOperationsAsync` |
+| `client.IntegrationOperations` | `CompleteCustomerAsync`, `RetryAsync` |
 | `client.Webhooks` | `ListAsync`, `CreateAsync`, `RemoveAsync`, `TestAsync`, `Deliveries.ListAsync/IterateAsync/StatsAsync/RetryAsync` |
-| `client.Credits` | `BalanceAsync`, `PlansAsync`, `HistoryAsync`, `IterateHistoryAsync` |
+| `client.Credits` | `BalanceAsync`, `PlansAsync`, `HistoryAsync`, `IterateHistoryAsync`, `PreviewPurchaseAsync` |
 | `client.Billing` | `PlanAsync`, `UsageAsync` |
-| `client.Plans` | `ListAsync`, `GetAsync`, `QuoteAsync` (public price catalog) |
+| `client.Plans` | `ListAsync`, `GetAsync`, `QuoteAsync` (public price catalog, outside the 0.3.0 contract) |
 | `client.Health` | `LiveAsync`, `ReadyAsync` |
+
+All 92 operations of the contract are covered (`tests/.../OpenApiCoverageTests.cs` checks it against `spec/openapi.json`). Plans are `free`, `solo`, `equipe`, `empresa`, `escala` (and `self-hosted`); there is no overage billing, the balance is the plan notes left plus loose notes bought separately (`Credits.PreviewPurchaseAsync` prices them). A test key cannot reach live webhooks, and webhook URLs on private networks are refused.
 
 Changing plans and the billing portal exist only in the dashboard, so they are not in the SDK.
 
@@ -225,6 +302,8 @@ Changing plans and the billing portal exist only in the dashboard, so they are n
 dotnet build
 dotnet test   # the contract test is skipped without env
 ```
+
+To follow a new API version, copy the new contract to `spec/openapi.json`: `OpenApiCoverageTests` fails until every operation has a method.
 
 The contract test runs only when `CORVO_API_KEY` and `CORVO_BASE_URL` point to a reachable instance.
 

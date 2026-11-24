@@ -132,7 +132,23 @@ internal sealed partial class HttpTransport : IDisposable
         }
     }
 
-    /// <summary>Issues a request for a binary payload (invoice PDF/XML).</summary>
+    /// <summary>
+    /// Issues a request whose answer carries nothing the caller needs (a <c>204</c>, <c>{ data: null }</c> or
+    /// <c>{ data: { deleted: true } }</c>) and maps success to <c>true</c>.
+    /// </summary>
+    public async Task<Result<bool>> RequestAckAsync(
+        HttpMethod method,
+        string path,
+        object? body = null,
+        CancellationToken ct = default)
+    {
+        var result = await RequestAsync<JsonElement>(method, path, body: body, ct: ct).ConfigureAwait(false);
+        return result.Error is null
+            ? new Result<bool>(true, null)
+            : new Result<bool>(false, result.Error);
+    }
+
+    /// <summary>Issues a request for a binary or text payload (PDF, XML, ZIP, CSV).</summary>
     public async Task<Result<DownloadedFile>> RequestRawAsync(
         HttpMethod method,
         string path,
@@ -251,7 +267,7 @@ internal sealed partial class HttpTransport : IDisposable
         }
     }
 
-    /// <summary>Marshals a multipart upload (certificate upload) without setting Content-Type manually.</summary>
+    /// <summary>Marshals a multipart upload (certificate, import file) without setting Content-Type manually.</summary>
     public async Task<Result<T>> SendMultipartAsync<T>(
         string path,
         HttpContent content,

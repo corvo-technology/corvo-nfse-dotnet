@@ -23,7 +23,8 @@ public class InvoicesTests
         var result = await client.Invoices.CreateAsync(NewInvoice(), idempotencyKey: "idem_1");
 
         Assert.Null(result.Error);
-        var invoice = result.Data!;
+        Assert.False(result.Data!.IsSchedule);
+        var invoice = result.Data.Invoice!;
         Assert.Equal("inv_1", invoice.Id);
         Assert.Equal(InvoiceStatuses.Queued, invoice.Status);
         var request = handler.Requests[0];

@@ -16,11 +16,12 @@ public static class WebhookEvents
     public const string InvoiceFiscalDiscrepancy = "nfse.invoice.fiscal_discrepancy";
     public const string InvoiceCancelled = "nfse.invoice.cancelled";
     public const string InvoiceCancellationRejected = "nfse.invoice.cancellation_rejected";
+    public const string InvoiceTakerRejected = "nfse.invoice.taker_rejected";
 
     /// <summary>Only sent by <c>Webhooks.TestAsync</c>; it cannot be subscribed.</summary>
     public const string WebhookTest = "webhook.test";
 
-    /// <summary>All eleven subscribable events.</summary>
+    /// <summary>All twelve subscribable events.</summary>
     public static IReadOnlyList<string> All { get; } = new[]
     {
         InvoiceAuthorized,
@@ -34,6 +35,7 @@ public static class WebhookEvents
         InvoiceFiscalDiscrepancy,
         InvoiceCancelled,
         InvoiceCancellationRejected,
+        InvoiceTakerRejected,
     };
 }
 
@@ -44,6 +46,12 @@ public sealed record Webhook
     public string Url { get; init; } = string.Empty;
     public IReadOnlyList<string> Events { get; init; } = Array.Empty<string>();
     public bool Active { get; init; }
+
+    /// <summary>
+    /// <c>test</c> or <c>live</c>: a webhook created with an API key only receives that key's
+    /// environment, and only a key of the same environment lists it.
+    /// </summary>
+    public string? Environment { get; init; }
     public string CreatedAt { get; init; } = string.Empty;
     public string UpdatedAt { get; init; } = string.Empty;
 }
@@ -55,12 +63,17 @@ public sealed record WebhookWithSecret
     public string Url { get; init; } = string.Empty;
     public IReadOnlyList<string> Events { get; init; } = Array.Empty<string>();
     public bool Active { get; init; }
+    public string? Environment { get; init; }
     public string CreatedAt { get; init; } = string.Empty;
     public string UpdatedAt { get; init; } = string.Empty;
     public string Secret { get; init; } = string.Empty;
 }
 
-/// <summary>Body for <c>POST /v1/webhooks</c>.</summary>
+/// <summary>
+/// Body for <c>POST /v1/webhooks</c>. The URL must be public: addresses that resolve to private,
+/// loopback, link-local, CGNAT, benchmarking, multicast or NAT64/6to4 ranges are refused when the
+/// webhook is registered and when it is delivered.
+/// </summary>
 public sealed record WebhookCreateParams
 {
     public required string Url { get; init; }
@@ -70,8 +83,13 @@ public sealed record WebhookCreateParams
 /// <summary>Result of removing a webhook (<c>{ deleted }</c>).</summary>
 public sealed record WebhookDeleteResult(bool Deleted);
 
-/// <summary>Result of firing a test event (<c>{ sent }</c>).</summary>
-public sealed record WebhookTestResult(bool Sent);
+/// <summary>Result of firing a test event: <c>{ sent: true }</c> or <c>{ sent: false, error, statusCode? }</c>.</summary>
+public sealed record WebhookTestResult
+{
+    public bool Sent { get; init; }
+    public string? Error { get; init; }
+    public int? StatusCode { get; init; }
+}
 
 /// <summary>Result of retrying a delivery (<c>{ retried }</c>).</summary>
 public sealed record WebhookRetryResult(bool Retried);
@@ -87,7 +105,7 @@ public sealed record WebhookDelivery
     public string Url { get; init; } = string.Empty;
     public IReadOnlyDictionary<string, JsonElement> Payload { get; init; } = new Dictionary<string, JsonElement>();
     public int? StatusCode { get; init; }
-    public JsonElement? ResponseBody { get; init; }
+    public string? ResponseBody { get; init; }
     public string? ErrorMessage { get; init; }
     public string Status { get; init; } = string.Empty;
     public int? DurationMs { get; init; }

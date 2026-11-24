@@ -9,7 +9,10 @@ public sealed class BillingResource
 
     internal BillingResource(HttpTransport http) => _http = http;
 
-    /// <summary>Current plan + subscription + usage (<c>GET /v1/billing/plan</c>).</summary>
+    /// <summary>
+    /// Current plan + subscription + usage (<c>GET /v1/billing/plan</c>). A workspace without a plan answers <c>404</c> with
+    /// <see cref="BillingErrorCodes.NoPlanAssigned"/>.
+    /// </summary>
     public Task<Result<BillingPlanResponse>> PlanAsync(CancellationToken ct = default)
         => _http.RequestAsync<BillingPlanResponse>(HttpMethod.Get, "/billing/plan", ct: ct);
 
