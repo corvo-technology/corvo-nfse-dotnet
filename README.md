@@ -272,10 +272,10 @@ if (!valid) return Results.BadRequest();
 | `client.Webhooks` | `ListAsync`, `CreateAsync`, `RemoveAsync`, `TestAsync`, `Deliveries.ListAsync/IterateAsync/StatsAsync/RetryAsync` |
 | `client.Credits` | `BalanceAsync`, `PlansAsync`, `HistoryAsync`, `IterateHistoryAsync`, `PreviewPurchaseAsync` |
 | `client.Billing` | `PlanAsync`, `UsageAsync` |
-| `client.Plans` | `ListAsync`, `GetAsync`, `QuoteAsync` (public price catalog, outside the 0.3.0 contract) |
+| `client.Plans` | `ListAsync`, `GetAsync` (public prices, no key needed), `QuoteAsync` (not in the contract) |
 | `client.Health` | `LiveAsync`, `ReadyAsync` |
 
-All 92 operations of the contract are covered (`tests/.../OpenApiCoverageTests.cs` checks it against `spec/openapi.json`). Plans are `free`, `solo`, `equipe`, `empresa`, `escala` (and `self-hosted`); there is no overage billing, the balance is the plan notes left plus loose notes bought separately (`Credits.PreviewPurchaseAsync` prices them). A test key cannot reach live webhooks, and webhook URLs on private networks are refused.
+All 94 operations of the contract are covered (`tests/.../OpenApiCoverageTests.cs` checks it against `spec/openapi.json`). Plans are `free`, `solo`, `equipe`, `empresa`, `escala` (and `self-hosted`); there is no overage billing, the balance is the plan notes left plus loose notes bought separately (`Credits.PreviewPurchaseAsync` prices them). A test key cannot reach live webhooks, and webhook URLs on private networks are refused.
 
 Changing plans and the billing portal exist only in the dashboard, so they are not in the SDK.
 

@@ -177,6 +177,41 @@ public class InvoicesTests
     }
 
     [Fact]
+    public async Task CreateBatch_error_details_can_be_an_array_or_an_object()
+    {
+        var handler = TestHandler.RespondJson(
+            """{"data":{"total":2,"accepted":0,"rejected":2,"results":[{"index":0,"status":"rejected","error":{"code":"ERROR_VALIDATION","message":"x","details":[{"path":"amount","message":"required"}]}},{"index":1,"status":"rejected","error":{"code":"ERROR_X","message":"y","details":{"field":"amount"}}}]}}""");
+        using var client = TestClient.Create(handler);
+
+        var result = await client.Invoices.CreateBatchAsync(new[]
+        {
+            new InvoiceBatchItem { Invoice = new InvoiceCreateParams { Service = new InvoiceServiceInput(), Amount = 1m, CompetenceDate = "2026-10-01" } },
+        });
+
+        Assert.Null(result.Error);
+        Assert.Equal(System.Text.Json.JsonValueKind.Array, result.Data!.Results[0].Error!.Details!.Value.ValueKind);
+        Assert.Equal(System.Text.Json.JsonValueKind.Object, result.Data.Results[1].Error!.Details!.Value.ValueKind);
+    }
+
+    [Fact]
+    public async Task Invoice_accepts_null_email_and_cancellation_enums_and_large_numbers()
+    {
+        var handler = TestHandler.RespondJson(
+            """{"data":{"id":"inv_1","status":"authorized","nfseNumber":123456789012345,"dpsNumber":9007199254740,"emailStatus":null,"lastEmailStatus":null,"cancellationReason":null,"portalFlag":null}}""");
+        using var client = TestClient.Create(handler);
+
+        var result = await client.Invoices.GetAsync("inv_1");
+
+        Assert.Null(result.Error);
+        Assert.Equal(123456789012345L, result.Data!.NfseNumber);
+        Assert.Equal(9007199254740L, result.Data.DpsNumber);
+        Assert.Null(result.Data.EmailStatus);
+        Assert.Null(result.Data.LastEmailStatus);
+        Assert.Null(result.Data.CancellationReason);
+        Assert.Null(result.Data.PortalFlag);
+    }
+
+    [Fact]
     public async Task Cancel_posts_reason_and_description()
     {
         var handler = TestHandler.RespondJson(

@@ -40,9 +40,6 @@ public sealed record CompanyUpdateParams
 {
     public string? LegalName { get; init; }
 
-    /// <summary>The CNPJ cannot be changed: sending the current one is accepted and ignored.</summary>
-    public string? TaxId { get; init; }
-
     public string? TradeName { get; init; }
     public Optional<string> MunicipalReg { get; init; }
     public bool? SendMunicipalReg { get; init; }
@@ -86,11 +83,6 @@ public sealed record CompanyUpdateParams
         if (LegalName is not null)
         {
             Put("legalName", LegalName);
-        }
-
-        if (TaxId is not null)
-        {
-            Put("taxId", TaxId);
         }
 
         if (TradeName is not null)

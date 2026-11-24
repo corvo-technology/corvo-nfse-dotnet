@@ -44,12 +44,12 @@ public class CompanyExtrasTests
     [Fact]
     public async Task InvoicePackage_summary_and_zip_download()
     {
-        var handler = TestHandler.Sequence("""{"data":{"companyName":"ACME","companyTaxId":"11222333000181","month":"2026-10","count":3,"limit":500,"total":450.5}}""");
+        var handler = TestHandler.Sequence("""{"data":{"companyName":"ACME","companyTaxId":"11222333000181","month":"2026-10","count":3,"limit":500,"total":"450.50"}}""");
         using var client = TestClient.Create(handler);
 
         var summary = await client.InvoicePackage.SummaryAsync("cmp_1", "2026-10");
         Assert.Equal(3, summary.Data!.Count);
-        Assert.Equal(450.5m, summary.Data.Total);
+        Assert.Equal("450.50", summary.Data.Total);
         Assert.Equal("https://api.test.local/v1/companies/cmp_1/invoice-package/summary?month=2026-10", handler.Requests[0].Url);
 
         var zipHandler = TestHandler.Respond(TestHandler.Response(null, HttpStatusCode.OK, response =>
@@ -219,7 +219,7 @@ public class CompanyExtrasTests
         Assert.Equal("active", got.Data.MunicipalityAgreement!.Status);
         Assert.Equal("MEI_MUNICIPALITY_MISMATCH", got.Data.Warnings![0].Code);
 
-        await client.Companies.UpdateAsync("cmp_1", new CompanyUpdateParams { TaxId = "11222333000181" });
-        Assert.Equal("""{"taxId":"11222333000181"}""", handler.Requests[1].Body);
+        await client.Companies.UpdateAsync("cmp_1", new CompanyUpdateParams { LegalName = "ACME LTDA" });
+        Assert.Equal("""{"legalName":"ACME LTDA"}""", handler.Requests[1].Body);
     }
 }

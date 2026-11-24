@@ -59,7 +59,7 @@ public sealed record InvoiceBatchError
     public string Code { get; init; } = string.Empty;
     public string Message { get; init; } = string.Empty;
 
-    /// <summary>Field-level issues, when the error has them.</summary>
+    /// <summary>Field-level issues, when the error has them: a JSON array of issues (validation errors) or an object.</summary>
     public JsonElement? Details { get; init; }
 }
 
@@ -589,13 +589,13 @@ public sealed record InvoiceCalculation
     public string? Disclaimer { get; init; }
     public string? CompetenceDate { get; init; }
     public string? TaxRegime { get; init; }
-    public JsonElement Classification { get; init; }
-    public JsonElement Applicability { get; init; }
+    public JsonElement? Classification { get; init; }
+    public JsonElement? Applicability { get; init; }
     public CalculatedTaxes Taxes { get; init; } = new();
     public JsonElement Withholdings { get; init; }
     public string? NetReceivableAmount { get; init; }
     public bool? CollectionWaived { get; init; }
-    public JsonElement Calculation { get; init; }
+    public JsonElement? Calculation { get; init; }
     public JsonElement Warnings { get; init; }
     public IReadOnlyList<CalculationPendingField> PendingFields { get; init; } = Array.Empty<CalculationPendingField>();
     public CalculationBlocking? Blocking { get; init; }

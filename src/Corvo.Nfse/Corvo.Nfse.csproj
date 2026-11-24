@@ -26,7 +26,7 @@
     <RepositoryType>git</RepositoryType>
     <PackageTags>corvo;nfse;nfs-e;brazil;invoice;fiscal;e-invoice</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>0.3.0: API contract 0.3.0 (92 operations). Breaking: new plan slugs, credits without overage, Invoices.CreateAsync returns InvoiceCreateResult (invoice or schedule), webhook test result. Added: customers, CNPJ lookup, service favorites, accountant package, schedules, imports, integrations, substitute, review, overview, DPS sequence, fiscal and service tax profiles, fiscal portal status.</PackageReleaseNotes>
+    <PackageReleaseNotes>0.3.0: API contract 0.3.0 (94 operations). Breaking: new plan slugs, credits without overage, Invoices.CreateAsync returns InvoiceCreateResult (invoice or schedule), webhook test result. Added: customers, CNPJ lookup, service favorites, accountant package, schedules, imports, integrations, substitute, review, overview, DPS sequence, fiscal and service tax profiles, fiscal portal status.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

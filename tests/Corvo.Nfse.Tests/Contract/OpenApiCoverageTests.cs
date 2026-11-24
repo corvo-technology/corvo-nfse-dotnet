@@ -83,6 +83,8 @@ public class OpenApiCoverageTests
         ["invoices_review"] = ("Invoices.ReviewAsync", "POST /invoices/review"),
         ["invoices_sendEmail"] = ("Invoices.SendEmailAsync", "POST /invoices/{id}/email"),
         ["invoices_substitute"] = ("Invoices.SubstituteAsync", "POST /invoices/{id}/substitute"),
+        ["plans_get"] = ("Plans.GetAsync", "GET /plans/{slug}"),
+        ["plans_list"] = ("Plans.ListAsync", "GET /plans"),
         ["schedules_cancel"] = ("Schedules.CancelAsync", "POST /schedules/{id}/cancel"),
         ["schedules_get"] = ("Schedules.GetAsync", "GET /schedules/{id}"),
         ["schedules_list"] = ("Schedules.ListAsync", "GET /schedules"),
@@ -145,7 +147,7 @@ public class OpenApiCoverageTests
 
         Assert.Empty(spec.Keys.Except(Implemented.Keys).OrderBy(x => x));
         Assert.Empty(Implemented.Keys.Except(spec.Keys).OrderBy(x => x));
-        Assert.Equal(92, spec.Count);
+        Assert.Equal(94, spec.Count);
     }
 
     [Fact]

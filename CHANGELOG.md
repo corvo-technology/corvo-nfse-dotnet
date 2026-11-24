@@ -2,7 +2,7 @@
 
 ## 0.3.0
 
-SDK for the API contract 0.3.0 (92 operations, vendored at `spec/openapi.json`; also at <https://corvo.tech/openapi.json>).
+SDK for the API contract 0.3.0 (94 operations, vendored at `spec/openapi.json`; also at <https://corvo.tech/openapi.json>).
 
 ### Breaking
 
@@ -16,7 +16,17 @@ SDK for the API contract 0.3.0 (92 operations, vendored at `spec/openapi.json`; 
 - `Invoices.SendEmailAsync(id, idempotencyKey, email, ct)`: the new `email` parameter comes before `ct`.
 - A test key can no longer reach live webhooks (`Webhook.Environment`), and webhook URLs that resolve to private networks are refused (API behavior, documented).
 
+### Contract fixes
+
+- Public plan prices: `Plans.ListAsync` (`GET /plans`, new `cycle` parameter) and `Plans.GetAsync` (`GET /plans/{slug}`) need no API key and are part of the contract (`PlanPrice`: `Slug`, `Name`, `MonthlyAllowance`, `BasePriceCents`, `MonthlyEquivalentCents`, `ChargeTotalCents`, `Currency`; it replaces `PlanQuote`). `Plans.GetAsync(slug, cycle, ct)`: `cycle` comes before `ct`.
+- `PackageSummary.Total` (`InvoicePackage.SummaryAsync`) is a `string` decimal such as `"1234.50"`, no longer a number.
+- `CompanyUpdateParams.TaxId` is removed: the CNPJ cannot be changed.
+- `InvoiceCalculation.Classification`, `Applicability` and `Calculation` are `JsonElement?` (may be null). Company, invoice email/cancellation/portal fields and `Webhook.Environment` accept null.
+- `InvoiceBatchError.Details` is an array of issues or an object. `NfseNumber`, `DpsNumber` and `DpsSequence.LastNumber` are 64-bit integers.
+- `Invoices.SendEmailAsync` and `Imports.EmitAsync` send no body when there is nothing to send.
+
 ### Added
+
 
 - Customers (`Customers.SearchAsync/IterateAsync/GetAsync/UpdateAsync/DeleteAsync`), `Cnpj.LookupAsync`, `ServiceFavorites`.
 - `AccountantPackage`, `InvoicePackage` (summary and ZIP download), `DpsSequence`, `FiscalProfiles`, `ServiceTaxProfiles`, `FiscalPortal.StatusAsync`.

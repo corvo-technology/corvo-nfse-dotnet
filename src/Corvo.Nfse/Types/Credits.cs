@@ -82,18 +82,20 @@ public sealed record CreditTransaction
 }
 
 /// <summary>
-/// An entry of the public price catalog (<c>GET /v1/plans</c>): prices in centavos, monthly cycle only.
-/// The public catalog is not part of the 0.3.0 API contract (it needs no key); prefer
-/// <c>Credits.PlansAsync</c> and <c>Billing.PlanAsync</c>.
+/// A price of the public catalog (<c>GET /v1/plans</c>, <c>GET /v1/plans/{slug}</c>; no API key needed). Amounts are in
+/// centavos: <c>MonthlyEquivalentCents</c> is the price per month in the chosen cycle (the annual cycle is discounted)
+/// and <c>ChargeTotalCents</c> is what is charged at once for that cycle.
 /// </summary>
-public sealed record PlanQuote
+public sealed record PlanPrice
 {
+    /// <summary><c>solo</c>, <c>equipe</c>, <c>empresa</c> or <c>escala</c>. Treat it as an open string.</summary>
     public string Slug { get; init; } = string.Empty;
+
     public string Name { get; init; } = string.Empty;
     public int MonthlyAllowance { get; init; }
     public int BasePriceCents { get; init; }
-    public int PerCreditOverageCents { get; init; }
-    public int MonthlyTotalCents { get; init; }
+    public int MonthlyEquivalentCents { get; init; }
+    public int ChargeTotalCents { get; init; }
     public string Currency { get; init; } = string.Empty;
 }
 

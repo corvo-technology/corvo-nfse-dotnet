@@ -63,7 +63,7 @@ public sealed class ImportsResource
         => _http.RequestAsync<ImportJob>(
             HttpMethod.Post,
             Path(id) + "/emit",
-            body: new JsonObject { ["sendEmail"] = sendEmail },
+            body: sendEmail is null ? null : new JsonObject { ["sendEmail"] = sendEmail },
             ct: ct);
 
     /// <summary>Lists the rows of an import (<c>GET /v1/imports/{id}/rows</c>).</summary>

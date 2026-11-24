@@ -66,6 +66,18 @@ public class InvoicesV3Tests
     }
 
     [Fact]
+    public async Task SendEmail_without_an_address_sends_no_body()
+    {
+        var handler = TestHandler.RespondJson("""{"data":{"emailId":"eml_1","status":"queued"}}""", HttpStatusCode.Accepted);
+        using var client = TestClient.Create(handler);
+
+        var result = await client.Invoices.SendEmailAsync("inv_1");
+
+        Assert.Null(result.Error);
+        Assert.True(string.IsNullOrEmpty(handler.Requests[0].Body));
+    }
+
+    [Fact]
     public async Task SendEmail_can_target_another_address()
     {
         var handler = TestHandler.RespondJson("""{"data":{"emailId":"eml_1","status":"queued"}}""", HttpStatusCode.Accepted);

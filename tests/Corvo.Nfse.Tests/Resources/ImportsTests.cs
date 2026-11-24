@@ -80,6 +80,18 @@ public class ImportsTests
     }
 
     [Fact]
+    public async Task Emit_without_params_sends_no_body()
+    {
+        var handler = TestHandler.RespondJson($$$"""{"data":{{{Job}}}}""", HttpStatusCode.Accepted);
+        using var client = TestClient.Create(handler);
+
+        await client.Imports.EmitAsync("imp_1");
+
+        Assert.EndsWith("/imports/imp_1/emit", handler.Requests[0].Url);
+        Assert.True(string.IsNullOrEmpty(handler.Requests[0].Body));
+    }
+
+    [Fact]
     public async Task Rows_list_iterate_and_update()
     {
         const string row =

@@ -58,7 +58,8 @@ public sealed record PackageSummary
     /// <summary>The most notes a package can hold.</summary>
     public int Limit { get; init; }
 
-    public decimal Total { get; init; }
+    /// <summary>Sum of the gross amount of the authorized notes, in BRL, as a decimal string with two places (<c>"1234.50"</c>).</summary>
+    public string Total { get; init; } = string.Empty;
 }
 
 /// <summary>The DPS numbering of a company (<c>/v1/companies/{id}/dps-sequence</c>).</summary>
