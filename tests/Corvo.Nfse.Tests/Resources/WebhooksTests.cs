@@ -54,6 +54,7 @@ public class WebhooksTests
 
         var tested = await client.Webhooks.TestAsync("wh_1");
         Assert.True(tested.Data!.Sent);
+        Assert.Null(tested.Data.Error);
         Assert.Equal(HttpMethod.Post, handler.Requests[1].Method);
         Assert.EndsWith("/webhooks/wh_1/test", handler.Requests[1].Url);
     }

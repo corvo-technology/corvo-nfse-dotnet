@@ -19,6 +19,9 @@ jobs:
       - name: Restore
         run: dotnet restore Corvo.Nfse.sln
 
+      - name: Format
+        run: dotnet format Corvo.Nfse.sln --no-restore --verify-no-changes
+
       - name: Build
         run: dotnet build Corvo.Nfse.sln --no-restore --configuration Release -warnaserror
 

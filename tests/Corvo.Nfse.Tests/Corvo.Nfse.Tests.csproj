@@ -19,6 +19,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="../../spec/openapi.json" Link="spec/openapi.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../../src/Corvo.Nfse/Corvo.Nfse.csproj" />
   </ItemGroup>
 

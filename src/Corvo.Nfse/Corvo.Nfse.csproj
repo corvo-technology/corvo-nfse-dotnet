@@ -15,7 +15,7 @@
 
   <PropertyGroup>
     <PackageId>Corvo.Nfse</PackageId>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <Authors>Corvo Technology</Authors>
     <Company>Corvo Technology</Company>
     <Product>Corvo NFS-e SDK</Product>
@@ -26,7 +26,7 @@
     <RepositoryType>git</RepositoryType>
     <PackageTags>corvo;nfse;nfs-e;brazil;invoice;fiscal;e-invoice</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>0.2.0: invoices.CreateBatchAsync and invoices.CancelAsync, deduction on invoices, simplesRate/simplesIssRate on companies, MEI and Simples Nacional only.</PackageReleaseNotes>
+    <PackageReleaseNotes>0.3.0: API contract 0.3.0 (94 operations). Breaking: new plan slugs, credits without overage, Invoices.CreateAsync returns InvoiceCreateResult (invoice or schedule), webhook test result. Added: customers, CNPJ lookup, service favorites, accountant package, schedules, imports, integrations, substitute, review, overview, DPS sequence, fiscal and service tax profiles, fiscal portal status.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

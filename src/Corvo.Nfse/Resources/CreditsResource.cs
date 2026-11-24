@@ -9,7 +9,9 @@ public sealed class CreditsResource
 
     internal CreditsResource(HttpTransport http) => _http = http;
 
-    /// <summary>Current credit balance (<c>GET /v1/credits</c>).</summary>
+    /// <summary>
+    /// Current balance (<c>GET /v1/credits</c>): plan notes left plus loose notes. There is no overage billing.
+    /// </summary>
     public Task<Result<CreditBalance>> BalanceAsync(CancellationToken ct = default)
         => _http.RequestAsync<CreditBalance>(HttpMethod.Get, "/credits", ct: ct);
 
@@ -28,6 +30,17 @@ public sealed class CreditsResource
             HttpTransport.Query(("limit", limit), ("cursor", cursor)),
             HttpTransport.MapPlain<CreditTransaction>(),
             ct);
+
+    /// <summary>
+    /// Prices a one-off purchase of <paramref name="units"/> notes (<c>GET /v1/credits/purchase/preview?units=N</c>):
+    /// R$ 0,99 each, at least 3, whole numbers. Buying is done in the dashboard.
+    /// </summary>
+    public Task<Result<CreditPurchasePreview>> PreviewPurchaseAsync(int units, CancellationToken ct = default)
+        => _http.RequestAsync<CreditPurchasePreview>(
+            HttpMethod.Get,
+            "/credits/purchase/preview",
+            query: HttpTransport.Query(("units", units)),
+            ct: ct);
 
     /// <summary>Walks every page of the credit ledger; a page failure is yielded as an error result.</summary>
     public IAsyncEnumerable<Result<CreditTransaction>> IterateHistoryAsync(int? limit = null, string? cursor = null, CancellationToken ct = default)

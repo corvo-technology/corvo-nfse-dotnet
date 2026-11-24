@@ -39,6 +39,7 @@ public readonly struct Optional<T>
 public sealed record CompanyUpdateParams
 {
     public string? LegalName { get; init; }
+
     public string? TradeName { get; init; }
     public Optional<string> MunicipalReg { get; init; }
     public bool? SendMunicipalReg { get; init; }

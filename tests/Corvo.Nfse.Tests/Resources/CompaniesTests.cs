@@ -64,6 +64,21 @@ public class CompaniesTests
     }
 
     [Fact]
+    public async Task Company_accepts_null_optional_fields()
+    {
+        var handler = TestHandler.RespondJson(
+            """{"data":{"id":"cmp_1","legalName":"ACME","tradeName":null,"taxId":"12345678000119","municipalReg":null,"defaultServiceCode":null,"taxRegime":null,"specialRegime":null,"addressStreet":null,"addressNumber":null,"addressComplement":null,"addressDistrict":null,"addressCity":null,"addressState":null,"addressZip":null,"simplesRate":null,"simplesIssRate":null}}""");
+        using var client = TestClient.Create(handler);
+
+        var result = await client.Companies.GetAsync("cmp_1");
+
+        Assert.Null(result.Error);
+        Assert.Null(result.Data!.TradeName);
+        Assert.Null(result.Data.AddressZip);
+        Assert.Null(result.Data.SimplesRate);
+    }
+
+    [Fact]
     public async Task Create_and_update_send_the_simples_rates()
     {
         var createHandler = TestHandler.RespondJson("""{"data":{"id":"cmp_1"}}""");

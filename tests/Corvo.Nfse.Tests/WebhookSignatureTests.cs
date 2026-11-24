@@ -54,7 +54,8 @@ public class WebhookSignatureTests
     [Fact]
     public void Webhook_event_catalog_matches_the_contract()
     {
-        Assert.Equal(11, WebhookEvents.All.Count);
+        Assert.Equal(12, WebhookEvents.All.Count);
+        Assert.Contains(WebhookEvents.InvoiceTakerRejected, WebhookEvents.All);
         Assert.Contains(WebhookEvents.InvoiceCancelled, WebhookEvents.All);
         Assert.Contains(WebhookEvents.InvoiceCancellationRejected, WebhookEvents.All);
         Assert.Contains(WebhookEvents.InvoiceFiscalDiscrepancy, WebhookEvents.All);

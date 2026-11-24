@@ -6,7 +6,11 @@ namespace Corvo.Nfse;
 /// <summary>
 /// The Corvo NFS-e API client. Composes the resource namespaces over a shared transport:
 /// <see cref="Companies"/>, <see cref="Certificates"/>, <see cref="Invoices"/>,
-/// <see cref="Webhooks"/>, <see cref="Credits"/>, <see cref="Billing"/>, <see cref="Plans"/>, <see cref="Health"/>.
+/// <see cref="Webhooks"/>, <see cref="Credits"/>, <see cref="Billing"/>, <see cref="Plans"/>, <see cref="Health"/>,
+/// plus <see cref="Customers"/>, <see cref="Cnpj"/>, <see cref="ServiceFavorites"/>, <see cref="AccountantPackage"/>,
+/// <see cref="InvoicePackage"/>, <see cref="DpsSequence"/>, <see cref="FiscalProfiles"/>, <see cref="ServiceTaxProfiles"/>,
+/// <see cref="FiscalPortal"/>, <see cref="Schedules"/>, <see cref="Imports"/> and the integration namespaces.
+/// The namespaces follow the <c>operationId</c> prefixes of the API contract (<c>docs/openapi</c>).
 /// </summary>
 /// <example>
 /// <code>
@@ -18,7 +22,7 @@ namespace Corvo.Nfse;
 public sealed class CorvoClient : IDisposable
 {
     /// <summary>The SDK version, the same as the package version.</summary>
-    public const string Version = "0.2.0";
+    public const string Version = "0.3.0";
 
     private readonly HttpTransport _transport;
 
@@ -45,6 +49,48 @@ public sealed class CorvoClient : IDisposable
 
     /// <summary>Public health checks: live, ready.</summary>
     public HealthResource Health { get; }
+
+    /// <summary>Saved customers: search, iterate, get, update, delete.</summary>
+    public CustomersResource Customers { get; }
+
+    /// <summary>CNPJ registry lookup.</summary>
+    public CnpjResource Cnpj { get; }
+
+    /// <summary>Favorite services of a company: list, create, delete.</summary>
+    public ServiceFavoritesResource ServiceFavorites { get; }
+
+    /// <summary>The monthly package for the accountant: get, update, send, listSends.</summary>
+    public AccountantPackageResource AccountantPackage { get; }
+
+    /// <summary>The monthly ZIP of a company's invoices: summary, download.</summary>
+    public InvoicePackageResource InvoicePackage { get; }
+
+    /// <summary>The DPS numbering of a company: get, set.</summary>
+    public DpsSequenceResource DpsSequence { get; }
+
+    /// <summary>The fiscal profile history of a company: list, upsert, approve.</summary>
+    public FiscalProfilesResource FiscalProfiles { get; }
+
+    /// <summary>The service tax classifications of a company: list, create, update, delete, approve.</summary>
+    public ServiceTaxProfilesResource ServiceTaxProfiles { get; }
+
+    /// <summary>Status of the national NFS-e portal.</summary>
+    public FiscalPortalResource FiscalPortal { get; }
+
+    /// <summary>Scheduled and recurring invoices: list, get, update, pause, resume, cancel, listRuns.</summary>
+    public SchedulesResource Schedules { get; }
+
+    /// <summary>Spreadsheet imports: start, list, get, emit, rows, discard, template, errors.</summary>
+    public ImportsResource Imports { get; }
+
+    /// <summary>Integration providers.</summary>
+    public IntegrationsResource Integrations { get; }
+
+    /// <summary>Connections between a company and a provider.</summary>
+    public IntegrationConnectionsResource IntegrationConnections { get; }
+
+    /// <summary>Operations received from providers: complete the customer, retry.</summary>
+    public IntegrationOperationsResource IntegrationOperations { get; }
 
     /// <summary>
     /// Creates a client. Reads <c>CORVO_API_KEY</c>/<c>CORVO_BASE_URL</c> as fallbacks for
@@ -78,6 +124,20 @@ public sealed class CorvoClient : IDisposable
         Billing = new BillingResource(_transport);
         Plans = new PlansResource(_transport);
         Health = new HealthResource(_transport);
+        Customers = new CustomersResource(_transport);
+        Cnpj = new CnpjResource(_transport);
+        ServiceFavorites = new ServiceFavoritesResource(_transport);
+        AccountantPackage = new AccountantPackageResource(_transport);
+        InvoicePackage = new InvoicePackageResource(_transport);
+        DpsSequence = new DpsSequenceResource(_transport);
+        FiscalProfiles = new FiscalProfilesResource(_transport);
+        ServiceTaxProfiles = new ServiceTaxProfilesResource(_transport);
+        FiscalPortal = new FiscalPortalResource(_transport);
+        Schedules = new SchedulesResource(_transport);
+        Imports = new ImportsResource(_transport);
+        Integrations = new IntegrationsResource(_transport);
+        IntegrationConnections = new IntegrationConnectionsResource(_transport);
+        IntegrationOperations = new IntegrationOperationsResource(_transport);
     }
 
     /// <summary>Releases the underlying <see cref="HttpClient"/> (and its handler).</summary>

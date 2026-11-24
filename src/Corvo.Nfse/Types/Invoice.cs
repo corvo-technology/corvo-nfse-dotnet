@@ -59,7 +59,7 @@ public sealed record InvoiceBatchError
     public string Code { get; init; } = string.Empty;
     public string Message { get; init; } = string.Empty;
 
-    /// <summary>Field-level issues, when the error has them.</summary>
+    /// <summary>Field-level issues, when the error has them: a JSON array of issues (validation errors) or an object.</summary>
     public JsonElement? Details { get; init; }
 }
 
@@ -96,25 +96,33 @@ public static class InvoiceStages
     public const string DocumentsReady = "documents_ready";
     public const string Completed = "completed";
     public const string Failed = "failed";
+    public const string Cancelled = "cancelled";
 }
 
 /// <summary>
-/// The customer (tomador) of an invoice. When a customer is sent, <see cref="TaxId"/> (CPF or CNPJ)
-/// is required; leave <see cref="InvoiceCreateParams.Customer"/> null for an invoice without one.
+/// The customer (tomador) of an invoice. Send <see cref="TaxId"/> (CPF or CNPJ) for a Brazilian
+/// customer, or <see cref="Foreign"/> for one outside Brazil (never both); leave
+/// <see cref="InvoiceCreateParams.Customer"/> null for an invoice without a customer.
 /// </summary>
 public sealed record InvoiceCustomerInput
 {
-    /// <summary>CPF or CNPJ.</summary>
-    public required string TaxId { get; init; }
+    /// <summary>CPF (11 digits) or CNPJ (14 digits), punctuation optional. Not allowed with <see cref="Foreign"/>.</summary>
+    public string? TaxId { get; init; }
 
-    /// <summary>Customer name.</summary>
+    /// <summary>
+    /// Customer name. May be omitted when the customer was already saved (it is filled from the
+    /// CPF/CNPJ); required with <see cref="Foreign"/>.
+    /// </summary>
     public string? Name { get; init; }
 
     /// <summary>Customer email; required when the invoice must be emailed.</summary>
     public string? Email { get; init; }
 
-    /// <summary>Optional address.</summary>
+    /// <summary>Optional address. Not allowed with <see cref="Foreign"/>.</summary>
     public InvoiceCustomerAddress? Address { get; init; }
+
+    /// <summary>A customer outside Brazil. Cannot be combined with <see cref="TaxId"/> or <see cref="Address"/>.</summary>
+    public InvoiceForeignCustomer? Foreign { get; init; }
 }
 
 /// <summary>Optional customer address; empty fields are omitted from the request.</summary>
@@ -125,6 +133,32 @@ public sealed record InvoiceCustomerAddress
     public string? State { get; init; }
     public string? Zip { get; init; }
     public string? Country { get; init; }
+    public string? MunicipalityCode { get; init; }
+}
+
+/// <summary>Why a foreign customer has no tax id (<see cref="InvoiceForeignCustomer.NoTaxIdReason"/>).</summary>
+public static class ForeignNoTaxIdReasons
+{
+    public const string Exempt = "exempt";
+    public const string NotRequired = "not_required";
+}
+
+/// <summary>A customer outside Brazil (<c>customer.foreign</c>). Send <see cref="TaxId"/> or <see cref="NoTaxIdReason"/>.</summary>
+public sealed record InvoiceForeignCustomer
+{
+    public string? TaxId { get; init; }
+
+    /// <summary>One of <see cref="ForeignNoTaxIdReasons"/>.</summary>
+    public string? NoTaxIdReason { get; init; }
+
+    public required string Country { get; init; }
+    public required string PostalCode { get; init; }
+    public required string City { get; init; }
+    public required string Region { get; init; }
+    public required string Street { get; init; }
+    public required string Number { get; init; }
+    public required string District { get; init; }
+    public string? Complement { get; init; }
 }
 
 /// <summary>
@@ -137,6 +171,21 @@ public sealed record InvoiceServiceInput
     public string? Code { get; init; }
     public string? MunicipalityCode { get; init; }
     public string? Description { get; init; }
+
+    /// <summary>Optional RTC fiscal classification, passed through to the fiscal engine.</summary>
+    public InvoiceServiceFiscal? Fiscal { get; init; }
+
+    /// <summary>Optional fiscal classification profile (UUID).</summary>
+    public string? ServiceProfileId { get; init; }
+}
+
+/// <summary>RTC fiscal classification of a service.</summary>
+public sealed record InvoiceServiceFiscal
+{
+    public string? ClassCode { get; init; }
+    public string? Cst { get; init; }
+    public string? NbsCode { get; init; }
+    public string? OperationIndicator { get; init; }
 }
 
 /// <summary>Email options of an invoice.</summary>
@@ -151,8 +200,15 @@ public sealed record InvoiceOptionsInput
 {
     public InvoiceEmailOptions? Email { get; init; }
 
-    /// <summary><c>IMMEDIATE</c> (default) or <c>SCHEDULE</c> with a future competence date (up to 15 days ahead by default).</summary>
+    /// <summary>
+    /// <c>IMMEDIATE</c> (default), <c>SCHEDULE</c> or <c>RECURRING</c>. The last two do not issue now:
+    /// they create a <see cref="Schedule"/> (see <see cref="InvoiceCreateResult"/>) and
+    /// <see cref="InvoiceCreateParams.CompetenceDate"/> is the date of the first run, from tomorrow on.
+    /// </summary>
     public string? Type { get; init; }
+
+    /// <summary>Required when <see cref="Type"/> is <c>RECURRING</c>; not allowed otherwise.</summary>
+    public InvoiceRecurrence? Recurrence { get; init; }
 }
 
 /// <summary>Values for <see cref="InvoiceOptionsInput.Type"/>.</summary>
@@ -160,6 +216,17 @@ public static class InvoiceTypes
 {
     public const string Immediate = "IMMEDIATE";
     public const string Schedule = "SCHEDULE";
+    public const string Recurring = "RECURRING";
+}
+
+/// <summary>How a recurring invoice repeats (<c>options.recurrence</c>).</summary>
+public sealed record InvoiceRecurrence
+{
+    /// <summary>One of <see cref="ScheduleFrequencies"/>.</summary>
+    public required string Frequency { get; init; }
+
+    /// <summary>Last day (<c>YYYY-MM-DD</c>) a run may happen; open-ended when omitted.</summary>
+    public string? EndsOn { get; init; }
 }
 
 /// <summary>The body of <c>POST /v1/invoices</c> and <c>POST /v1/invoices/calculate</c>.</summary>
@@ -178,8 +245,17 @@ public sealed record InvoiceCreateParams
     /// <summary>Amount in BRL: positive, up to 2 decimal places.</summary>
     public required decimal Amount { get; init; }
 
-    /// <summary><c>YYYY-MM-DD</c>. A future date needs <c>Options.Type = "SCHEDULE"</c>.</summary>
+    /// <summary>
+    /// <c>YYYY-MM-DD</c>. A future date needs <c>Options.Type = "SCHEDULE"</c> (up to 15 days ahead)
+    /// or <c>"RECURRING"</c> (up to 31); it is then the date of the first run, from tomorrow on.
+    /// </summary>
     public required string CompetenceDate { get; init; }
+
+    /// <summary>Customer purchase order (DPS <c>xPed</c>), up to 60 characters.</summary>
+    public string? PurchaseOrder { get; init; }
+
+    /// <summary>Complementary information printed on the invoice (DPS <c>xInfComp</c>), up to 2000 characters.</summary>
+    public string? Notes { get; init; }
 
     /// <summary>Unconditional discount in BRL, from 0 up to <see cref="Amount"/>, at most 2 decimal places.</summary>
     public decimal? Discount { get; init; }
@@ -206,6 +282,10 @@ public sealed record InvoiceListParams
     public string? From { get; init; }
     public string? To { get; init; }
     public string? ExternalId { get; init; }
+
+    /// <summary>CPF or CNPJ of the customer (digits).</summary>
+    public string? CustomerTaxId { get; init; }
+
     public int? Limit { get; init; }
     public string? Cursor { get; init; }
 }
@@ -251,6 +331,12 @@ public sealed record InvoiceEvent
     public string? FromStatus { get; init; }
     public string? ToStatus { get; init; }
     public string? Reason { get; init; }
+
+    /// <summary><c>portal</c> when the event came from the national portal; otherwise <c>null</c>.</summary>
+    public string? Source { get; init; }
+
+    public string? PortalEvent { get; init; }
+    public string? PortalNsu { get; init; }
     public string CreatedAt { get; init; } = string.Empty;
 }
 
@@ -316,6 +402,124 @@ public sealed record Invoice
 
     /// <summary>When a cancellation was requested (ISO), or null.</summary>
     public string? CancellationRequestedAt { get; init; }
+
+    /// <summary>On a substitute invoice, the id of the invoice it replaces.</summary>
+    public string? SubstitutesInvoiceId { get; init; }
+
+    /// <summary>On a substitute invoice, why it was issued.</summary>
+    public string? SubstitutionDescription { get; init; }
+
+    /// <summary><c>taker_rejected</c> or <c>blocked</c>, from the national portal; otherwise null.</summary>
+    public string? PortalFlag { get; init; }
+}
+
+/// <summary>Values of <see cref="Invoice.PortalFlag"/>.</summary>
+public static class InvoicePortalFlags
+{
+    public const string TakerRejected = "taker_rejected";
+    public const string Blocked = "blocked";
+}
+
+/// <summary>
+/// The answer of <c>POST /v1/invoices</c>: an <see cref="Invoice"/> for <c>IMMEDIATE</c>, a
+/// <see cref="Schedule"/> for <c>SCHEDULE</c> and <c>RECURRING</c>. Exactly one of the two is set.
+/// </summary>
+public sealed record InvoiceCreateResult
+{
+    /// <summary>The queued invoice (immediate issuance); null when a schedule was created.</summary>
+    public Invoice? Invoice { get; init; }
+
+    /// <summary>The created schedule (<c>SCHEDULE</c> / <c>RECURRING</c>); null when an invoice was queued.</summary>
+    public Schedule? Schedule { get; init; }
+
+    /// <summary>True when <see cref="Schedule"/> is set instead of <see cref="Invoice"/>.</summary>
+    public bool IsSchedule => Schedule is not null;
+}
+
+/// <summary>The body of <c>POST /v1/invoices/{id}/substitute</c>. Only these fields can change.</summary>
+public sealed record InvoiceSubstituteParams
+{
+    /// <summary>Why the invoice is being substituted.</summary>
+    public required string Description { get; init; }
+
+    public string? Notes { get; init; }
+    public string? PurchaseOrder { get; init; }
+
+    /// <summary>New service description; the rest of the service cannot change.</summary>
+    public InvoiceSubstituteService? Service { get; init; }
+}
+
+/// <summary>The service fields a substitute may change.</summary>
+public sealed record InvoiceSubstituteService
+{
+    public string? Description { get; init; }
+}
+
+/// <summary>What <c>Invoices.ReviewAsync</c> does with invoices in <c>manual_review</c>.</summary>
+public enum InvoiceReviewAction
+{
+    /// <summary>Send the invoices back to reconciliation.</summary>
+    Retry,
+
+    /// <summary>Discard them.</summary>
+    Discard,
+}
+
+/// <summary>One result of <c>Invoices.ReviewAsync</c>.</summary>
+public sealed record InvoiceReviewItem
+{
+    public string Id { get; init; } = string.Empty;
+
+    /// <summary><c>accepted</c> or <c>skipped</c>.</summary>
+    public string Outcome { get; init; } = string.Empty;
+
+    /// <summary>When skipped: <c>not_found</c>, <c>not_in_manual_review</c> or <c>changed</c>.</summary>
+    public string? Reason { get; init; }
+}
+
+/// <summary>Result of <c>Invoices.ReviewAsync</c>.</summary>
+public sealed record InvoiceReviewResult
+{
+    public IReadOnlyList<InvoiceReviewItem> Results { get; init; } = Array.Empty<InvoiceReviewItem>();
+}
+
+/// <summary>Counts of the overview.</summary>
+public sealed record InvoiceOverviewCounts
+{
+    public int Authorized { get; init; }
+    public int Processing { get; init; }
+    public int Rejected { get; init; }
+}
+
+/// <summary>One day of the overview chart.</summary>
+public sealed record InvoiceOverviewDay
+{
+    public string Date { get; init; } = string.Empty;
+    public int Count { get; init; }
+}
+
+/// <summary>Response of <c>GET /v1/invoices/overview</c>.</summary>
+public sealed record InvoiceOverview
+{
+    public InvoiceOverviewCounts Counts { get; init; } = new();
+    public IReadOnlyList<InvoiceOverviewDay> DailyActivity { get; init; } = Array.Empty<InvoiceOverviewDay>();
+
+    /// <summary><c>7d</c> or <c>30d</c>.</summary>
+    public string Period { get; init; } = string.Empty;
+
+    public string From { get; init; } = string.Empty;
+    public string To { get; init; } = string.Empty;
+    public string Timezone { get; init; } = string.Empty;
+    public IReadOnlyList<Invoice> RecentInvoices { get; init; } = Array.Empty<Invoice>();
+}
+
+/// <summary>Whether the national NFS-e portal is answering (<c>GET /v1/fiscal-portal/status</c>).</summary>
+public sealed record PortalStatus
+{
+    public bool Available { get; init; }
+    public string Environment { get; init; } = string.Empty;
+    public string? RetryAt { get; init; }
+    public string? Since { get; init; }
 }
 
 /// <summary>Email settings snapshot embedded in an invoice.</summary>
@@ -328,6 +532,9 @@ public sealed record InvoiceCustomerSnapshot
     public string? Email { get; init; }
     public string? TaxId { get; init; }
     public InvoiceCustomerAddress? Address { get; init; }
+
+    /// <summary>Set for a customer outside Brazil.</summary>
+    public JsonElement? Foreign { get; init; }
 }
 
 /// <summary>Service data snapshotted at issue time.</summary>
@@ -336,6 +543,12 @@ public sealed record InvoiceServiceSnapshot
     public string? Code { get; init; }
     public string? Description { get; init; }
     public string? MunicipalityCode { get; init; }
+    public string? PurchaseOrder { get; init; }
+    public string? Notes { get; init; }
+    public string? ServiceProfileId { get; init; }
+
+    /// <summary>RTC fiscal classification (<c>nbsCode</c>, <c>cst</c>, <c>classCode</c>, ...).</summary>
+    public IReadOnlyDictionary<string, string>? Fiscal { get; init; }
 }
 
 /// <summary>One tax of a pre-emission estimate. Amounts are decimal strings.</summary>
@@ -376,13 +589,13 @@ public sealed record InvoiceCalculation
     public string? Disclaimer { get; init; }
     public string? CompetenceDate { get; init; }
     public string? TaxRegime { get; init; }
-    public JsonElement Classification { get; init; }
-    public JsonElement Applicability { get; init; }
+    public JsonElement? Classification { get; init; }
+    public JsonElement? Applicability { get; init; }
     public CalculatedTaxes Taxes { get; init; } = new();
     public JsonElement Withholdings { get; init; }
     public string? NetReceivableAmount { get; init; }
     public bool? CollectionWaived { get; init; }
-    public JsonElement Calculation { get; init; }
+    public JsonElement? Calculation { get; init; }
     public JsonElement Warnings { get; init; }
     public IReadOnlyList<CalculationPendingField> PendingFields { get; init; } = Array.Empty<CalculationPendingField>();
     public CalculationBlocking? Blocking { get; init; }
